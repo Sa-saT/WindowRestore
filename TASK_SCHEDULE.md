@@ -45,7 +45,7 @@
 - [ ] 単体テストの作成
 
 ### 🔧 2.2 ウィンドウ復元機能
-- [ ] window_restorer.rsの実装
+- [x] window_restorer.rsの実装
 - [ ] ウィンドウ位置・サイズ設定機能
 - [ ] ディスプレイ間移動機能
 - [ ] アプリ起動機能
@@ -88,10 +88,10 @@
 ## Phase 4: UI・統合（Week 4）
 
 ### 🎨 4.1 Swift UI実装
-- [ ] AppDelegate.swiftの実装
-- [ ] MenuController.swiftの実装
-- [ ] PermissionManager.swiftの実装
-- [ ] LayoutSelector.swiftの実装
+- [x] AppDelegate.swiftの実装
+- [x] MenuController.swiftの実装
+- [x] PermissionManager.swiftの実装
+- [x] LayoutSelector.swiftの実装
 - [ ] メニューバーアイコンの作成
 - [ ] メニュー項目の実装
 - [ ] 設定画面の実装
@@ -175,5 +175,5 @@
 ---
 
 **作成日**: 2024年1月15日  
-**最終更新**: 2024年1月15日（ウィンドウ情報取得機能実装完了）  
+**最終更新**: 2025年10月22日（mac-app再構成・Swift UI基本実装・復元基盤実装）  
 **担当者**: 開発者
