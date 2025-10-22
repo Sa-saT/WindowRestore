@@ -76,7 +76,7 @@ pub extern "C" fn restore_layout(name: *const c_char) -> i32 {
     };
 
     match WindowRestore::new() {
-        Ok(app) => {
+        Ok(mut app) => {
             let result = app.restore_layout(name_str);
             result_to_error_code(&result)
         }

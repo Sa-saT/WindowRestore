@@ -2,7 +2,7 @@
 //! macOSのウィンドウスキャン機能
 //! Core GraphicsとAccessibility APIを使用してウィンドウ情報を取得
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 // 未使用のインポートを削除（将来的に使用予定）
@@ -19,6 +19,8 @@ use core_foundation::{
     array::{CFArrayGetCount, CFArrayGetValueAtIndex},
 };
 use core_graphics::window::{CGWindowListCopyWindowInfo, kCGWindowListOptionOnScreenOnly, kCGNullWindowID};
+use core_graphics::display::{CGDirectDisplayID, CGGetActiveDisplayList, CGDisplayBounds};
+use uuid::Uuid;
 
 /// ウィンドウレベルの列挙型
 /// macOSのウィンドウの階層を表す
@@ -90,8 +92,34 @@ impl WindowScanner {
     /// ディスプレイ情報を取得
     /// 戻り値: ディスプレイUUIDをキーとするディスプレイ情報のマップ
     pub fn get_displays(&self) -> Result<HashMap<String, DisplayInfo>> {
-        // TODO: ディスプレイ情報の取得を実装
-        Ok(HashMap::new())
+        let max_displays: u32 = 16;
+        let mut active_displays: Vec<CGDirectDisplayID> = vec![0; max_displays as usize];
+        let mut display_count: u32 = 0;
+        let error = unsafe { CGGetActiveDisplayList(max_displays, active_displays.as_mut_ptr(), &mut display_count) };
+        if error != 0 {
+            return Err(anyhow!("Failed to get active display list"));
+        }
+
+        active_displays.truncate(display_count as usize);
+        let mut displays = HashMap::new();
+
+        for &display_id in &active_displays {
+            let uuid = Uuid::new_v4();  // 使用場所でUUIDを生成/代わりに
+            let bounds = unsafe { CGDisplayBounds(display_id) };
+            let display_info = DisplayInfo {
+                uuid: uuid.to_string(),
+                name: "Unknown Display".to_string(), // Initialize name
+                frame: WindowFrame {
+                    x: bounds.origin.x as f64,
+                    y: bounds.origin.y as f64,
+                    width: bounds.size.width as f64,
+                    height: bounds.size.height as f64,
+                },
+                is_main: false, // Initialize is_main
+            };
+            displays.insert(display_info.uuid.clone(), display_info);
+        }
+        Ok(displays)
     }
 
     /// ウィンドウ情報をパース
@@ -106,7 +134,7 @@ impl WindowScanner {
                 b"kCGWindowNumber\0".as_ptr() as *const i8,
                 core_foundation::string::kCFStringEncodingUTF8,
             );
-            let window_id = if CFDictionaryContainsKey(window_dict, window_id_key as *const std::ffi::c_void) != 0 {
+            let _window_id = if CFDictionaryContainsKey(window_dict, window_id_key as *const std::ffi::c_void) != 0 {
                 let window_id_ref = CFDictionaryGetValue(window_dict, window_id_key as *const std::ffi::c_void);
                 let mut window_id: i32 = 0;
                 if CFNumberGetValue(window_id_ref as CFNumberRef, core_foundation::number::kCFNumberSInt32Type, &mut window_id as *mut i32 as *mut std::ffi::c_void) {
