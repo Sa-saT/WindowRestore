@@ -1,31 +1,24 @@
-// swift-tools-version:5.3
-// Swift Package Managerマニフェスト
-// macOSアプリのビルド設定を定義
-
+// swift-tools-version:5.9
 import PackageDescription
 
 let package = Package(
-    name: "mac-app",  // パッケージ名
+    name: "mac-app",
     platforms: [
-        .macOS(.v10_15)  // macOS 10.15 (Catalina) 以降をサポート
+        .macOS(.v13)
     ],
     products: [
-        // 実行可能ファイルとしてビルド
-        .executable(name: "mac-app", targets: ["mac-app"]),
+        .executable(name: "mac-app", targets: ["mac-app"]) 
     ],
-    dependencies: [],  // 外部依存なし
     targets: [
-        .target(
+        .executableTarget(
             name: "mac-app",
-            dependencies: [],  // ターゲット依存なし
-            path: "Sources",   // ソースコードのパス
-            sources: ["mac-app/main.swift"],  // ビルドするソースファイル
+            path: "Sources/mac-app",
+            resources: [],
             cSettings: [
-                // Cコンパイラ設定: Rustライブラリのヘッダーとライブラリパスを指定
-                .unsafeFlags(["-I../../", "-L../../target/release/", "-I./Bridging/"])
+                .headerSearchPath("../Bridging")
             ],
             linkerSettings: [
-                // リンカー設定: Rustライブラリ（libwindow_restore）とリンク
+                .unsafeFlags(["-L", "../target/debug", "-L", "../target/release"], .when(platforms: [.macOS])),
                 .linkedLibrary("window_restore")
             ]
         )

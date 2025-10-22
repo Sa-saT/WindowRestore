@@ -1,5 +1,4 @@
 import Foundation
-import window_restore
 
 // この関数はRustのFFI関数を呼び出して、現在のウィンドウレイアウトを保存します。
 // これはSwiftがRustとどのように連携するかの簡単な例です。

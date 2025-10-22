@@ -1,0 +1,4 @@
+module window_restore {
+    header "window_restore.h"
+    export *
+}
