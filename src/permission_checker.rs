@@ -1,22 +1,26 @@
 //! Permission checking functionality
+//! 権限チェック機能
+//! macOSのアクセシビリティ権限などをチェックする
 
 use anyhow::Result;
 
-/// Permission checker for macOS
+/// macOS用権限チェッカー
+/// アプリに必要な権限が付与されているかチェックする
 pub struct PermissionChecker {
-    // Internal state for permission checking
+    // 権限チェックの内部状態
 }
 
 impl PermissionChecker {
-    /// Create a new PermissionChecker instance
+    /// 新しいPermissionCheckerインスタンスを作成
     pub fn new() -> Result<Self> {
         Ok(Self {})
     }
 
-    /// Check if accessibility permissions are granted
+    /// アクセシビリティ権限が付与されているかチェック
+    /// 戻り値: 権限がある場合true
     pub fn check_accessibility_permission(&self) -> bool {
-        // TODO: Implement accessibility permission check using AXIsProcessTrusted()
-        // This will use the Accessibility API to check if the app has permission
+        // TODO: AXIsProcessTrusted()を使用してアクセシビリティ権限をチェック
+        // Accessibility APIを使用してアプリが権限を持っているか確認する
         
         log::debug!("Checking accessibility permissions");
         
@@ -24,10 +28,11 @@ impl PermissionChecker {
         false
     }
 
-    /// Request accessibility permissions
+    /// アクセシビリティ権限をリクエスト
+    /// システム環境設定のアクセシビリティセクションを開く
     pub fn request_accessibility_permission(&self) -> Result<()> {
-        // TODO: Implement accessibility permission request
-        // This will open System Preferences to the Accessibility section
+        // TODO: アクセシビリティ権限のリクエストを実装
+        // システム環境設定のアクセシビリティセクションを開く
         
         log::info!("Requesting accessibility permissions");
         
@@ -35,10 +40,11 @@ impl PermissionChecker {
         Ok(())
     }
 
-    /// Check if screen recording permissions are granted
+    /// 画面収録権限が付与されているかチェック
+    /// 一部のウィンドウ操作で必要になる場合がある
     pub fn check_screen_recording_permission(&self) -> bool {
-        // TODO: Implement screen recording permission check
-        // This may be needed for some window operations
+        // TODO: 画面収録権限のチェックを実装
+        // 一部のウィンドウ操作で必要になる場合がある
         
         log::debug!("Checking screen recording permissions");
         
@@ -46,9 +52,9 @@ impl PermissionChecker {
         true
     }
 
-    /// Request screen recording permissions
+    /// 画面収録権限をリクエスト
     pub fn request_screen_recording_permission(&self) -> Result<()> {
-        // TODO: Implement screen recording permission request
+        // TODO: 画面収録権限のリクエストを実装
         
         log::info!("Requesting screen recording permissions");
         
@@ -56,7 +62,8 @@ impl PermissionChecker {
         Ok(())
     }
 
-    /// Check all required permissions
+    /// すべての必要な権限をチェック
+    /// 戻り値: 権限の状態
     pub fn check_all_permissions(&self) -> PermissionStatus {
         let accessibility = self.check_accessibility_permission();
         let screen_recording = self.check_screen_recording_permission();
@@ -68,7 +75,7 @@ impl PermissionChecker {
         }
     }
 
-    /// Open System Preferences to Privacy & Security section
+    /// システム環境設定のプライバシーとセキュリティを開く
     pub fn open_privacy_settings(&self) -> Result<()> {
         log::info!("Opening Privacy & Security settings");
         
@@ -86,16 +93,19 @@ impl PermissionChecker {
     }
 }
 
-/// Permission status structure
+/// 権限状態構造体
+/// 各種権限の状態を保持
 #[derive(Debug, Clone)]
 pub struct PermissionStatus {
-    pub accessibility: bool,
-    pub screen_recording: bool,
-    pub all_granted: bool,
+    pub accessibility: bool,     // アクセシビリティ権限
+    pub screen_recording: bool,  // 画面収録権限
+    pub all_granted: bool,       // すべての権限が付与されているか
 }
 
-/// Check accessibility permissions (convenience function)
+/// アクセシビリティ権限をチェック（便利関数）
+/// 戻り値: 権限がある場合true
 pub fn check_accessibility_permission() -> bool {
-    let checker = PermissionChecker::new().unwrap_or_else(|_| PermissionChecker::new().unwrap());
-    checker.check_accessibility_permission()
+    PermissionChecker::new()
+        .map(|checker| checker.check_accessibility_permission())
+        .unwrap_or(false)
 }

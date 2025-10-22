@@ -842,6 +842,7 @@ dependencies = [
  "cbindgen",
  "chrono",
  "cocoa",
+ "core-foundation",
  "core-graphics",
  "dirs",
  "env_logger",

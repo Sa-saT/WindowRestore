@@ -1,45 +1,50 @@
 //! Notification functionality for macOS
+//! 通知機能
+//! macOSのネイティブ通知を表示する
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
-/// Notification types
+/// 通知タイプの列挙型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum NotificationType {
-    Success,
-    Error,
-    Warning,
-    Info,
+    Success,  // 成功通知
+    Error,    // エラー通知
+    Warning,  // 警告通知
+    Info,     // 情報通知
 }
 
-/// Notification structure
+/// 通知構造体
+/// 表示する通知の内容を保持
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Notification {
-    pub title: String,
-    pub message: String,
-    pub notification_type: NotificationType,
-    pub timestamp: String,
+    pub title: String,                      // 通知タイトル
+    pub message: String,                    // 通知メッセージ
+    pub notification_type: NotificationType, // 通知タイプ
+    pub timestamp: String,                  // タイムスタンプ
 }
 
-/// Notification manager for macOS
+/// macOS用通知マネージャー
+/// システム通知の表示を管理
 pub struct NotificationManager {
-    // Internal state for notifications
+    // 通知管理の内部状態
 }
 
 impl NotificationManager {
-    /// Create a new NotificationManager instance
+    /// 新しいNotificationManagerインスタンスを作成
     pub fn new() -> Result<Self> {
         Ok(Self {})
     }
 
-    /// Show a notification
-    pub fn show_notification(&self, title: &str, message: &str, notification_type: NotificationType) -> Result<()> {
+    /// 通知を表示
+    /// 引数: title - タイトル、message - メッセージ、notification_type - 通知タイプ
+    pub fn show_notification(&self, title: &str, message: &str, _notification_type: NotificationType) -> Result<()> {
         log::info!("Showing notification: {} - {}", title, message);
         
-        // TODO: Implement macOS native notifications using UserNotifications framework
-        // This will use NSUserNotification or UserNotifications framework
+        // TODO: UserNotificationsフレームワークを使用してmacOSネイティブ通知を実装
+        // NSUserNotificationまたはUserNotificationsフレームワークを使用する
         
-        // Placeholder implementation using osascript
+        // osascriptを使用したプレースホルダー実装
         let script = format!(
             r#"display notification "{}" with title "{}""#,
             message.replace('"', "\\\""),
@@ -59,27 +64,32 @@ impl NotificationManager {
         Ok(())
     }
 
-    /// Show success notification
+    /// 成功通知を表示
+    /// 引数: title - タイトル、message - メッセージ
     pub fn show_success(&self, title: &str, message: &str) -> Result<()> {
         self.show_notification(title, message, NotificationType::Success)
     }
 
-    /// Show error notification
+    /// エラー通知を表示
+    /// 引数: title - タイトル、message - メッセージ
     pub fn show_error(&self, title: &str, message: &str) -> Result<()> {
         self.show_notification(title, message, NotificationType::Error)
     }
 
-    /// Show warning notification
+    /// 警告通知を表示
+    /// 引数: title - タイトル、message - メッセージ
     pub fn show_warning(&self, title: &str, message: &str) -> Result<()> {
         self.show_notification(title, message, NotificationType::Warning)
     }
 
-    /// Show info notification
+    /// 情報通知を表示
+    /// 引数: title - タイトル、message - メッセージ
     pub fn show_info(&self, title: &str, message: &str) -> Result<()> {
         self.show_notification(title, message, NotificationType::Info)
     }
 
-    /// Show layout saved notification
+    /// レイアウト保存完了通知を表示
+    /// 引数: layout_name - 保存されたレイアウト名
     pub fn show_layout_saved(&self, layout_name: &str) -> Result<()> {
         self.show_success(
             "Layout Saved",
@@ -87,7 +97,8 @@ impl NotificationManager {
         )
     }
 
-    /// Show layout restored notification
+    /// レイアウト復元完了通知を表示
+    /// 引数: layout_name - 復元されたレイアウト名
     pub fn show_layout_restored(&self, layout_name: &str) -> Result<()> {
         self.show_success(
             "Layout Restored",
@@ -95,7 +106,8 @@ impl NotificationManager {
         )
     }
 
-    /// Show layout deleted notification
+    /// レイアウト削除通知を表示
+    /// 引数: layout_name - 削除されたレイアウト名
     pub fn show_layout_deleted(&self, layout_name: &str) -> Result<()> {
         self.show_info(
             "Layout Deleted",
@@ -103,7 +115,7 @@ impl NotificationManager {
         )
     }
 
-    /// Show permission required notification
+    /// 権限が必要という通知を表示
     pub fn show_permission_required(&self) -> Result<()> {
         self.show_warning(
             "Permission Required",
@@ -111,7 +123,8 @@ impl NotificationManager {
         )
     }
 
-    /// Show error notification
+    /// 汎用エラー通知を表示
+    /// 引数: error_message - エラーメッセージ
     pub fn show_generic_error(&self, error_message: &str) -> Result<()> {
         self.show_error(
             "Error",

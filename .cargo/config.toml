@@ -1,0 +1,8 @@
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-args=-target x86_64-apple-macosx10.15"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-args=-target aarch64-apple-macosx11"]
+
+[target.universal-apple-darwin]
+rustflags = ["-C", "link-args=-target universal-apple-macos"]

@@ -13,6 +13,9 @@ pub mod permission_checker;
 pub mod notification;
 pub mod ffi;
 
+// 公開する型を再エクスポート
+pub use window_scanner::{WindowInfo, WindowLevel, WindowFrame, DisplayInfo};
+
 use anyhow::Result;
 use thiserror::Error;
 

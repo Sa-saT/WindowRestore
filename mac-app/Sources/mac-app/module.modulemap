@@ -1,0 +1,5 @@
+module window_restore {
+    header "../../Bridging/window_restore.h"
+    link "window_restore"
+    export *
+}

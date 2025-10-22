@@ -1,4 +1,5 @@
 //! FFI (Foreign Function Interface) bindings for C/Swift integration
+//! SwiftやObjective-CからRustの機能を呼び出すためのインターフェース
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
@@ -6,17 +7,19 @@ use anyhow::Result;
 
 use crate::{WindowRestore, WindowRestoreError};
 
-/// Error codes for FFI
-pub const ERROR_SUCCESS: i32 = 0;
-pub const ERROR_PERMISSION_DENIED: i32 = 1;
-pub const ERROR_APP_NOT_FOUND: i32 = 2;
-pub const ERROR_WINDOW_NOT_FOUND: i32 = 3;
-pub const ERROR_DISPLAY_NOT_FOUND: i32 = 4;
-pub const ERROR_FILE_IO: i32 = 5;
-pub const ERROR_JSON: i32 = 6;
-pub const ERROR_UNKNOWN: i32 = 99;
+/// FFI用エラーコード
+/// Swiftから呼び出した結果を判定するために使用
+pub const ERROR_SUCCESS: i32 = 0;              // 成功
+pub const ERROR_PERMISSION_DENIED: i32 = 1;    // 権限エラー
+pub const ERROR_APP_NOT_FOUND: i32 = 2;        // アプリが見つからない
+pub const ERROR_WINDOW_NOT_FOUND: i32 = 3;     // ウィンドウが見つからない
+pub const ERROR_DISPLAY_NOT_FOUND: i32 = 4;    // ディスプレイが見つからない
+pub const ERROR_FILE_IO: i32 = 5;              // ファイルI/Oエラー
+pub const ERROR_JSON: i32 = 6;                 // JSON処理エラー
+pub const ERROR_UNKNOWN: i32 = 99;             // 未知のエラー
 
-/// Convert Rust Result to FFI error code
+/// RustのResult型をFFIエラーコードに変換
+/// Swift側で扱いやすい整数値に変換する
 fn result_to_error_code(result: &Result<()>) -> i32 {
     match result {
         Ok(_) => ERROR_SUCCESS,
@@ -37,7 +40,10 @@ fn result_to_error_code(result: &Result<()>) -> i32 {
     }
 }
 
-/// Save current window layout
+/// 現在のウィンドウレイアウトを保存
+/// Swift/Objective-Cから呼び出し可能なC互換関数
+/// 引数: name - レイアウト名（C文字列）
+/// 戻り値: エラーコード（0=成功、その他=エラー）
 #[no_mangle]
 pub extern "C" fn save_current_layout(name: *const c_char) -> i32 {
     let name_str = unsafe {
@@ -56,7 +62,10 @@ pub extern "C" fn save_current_layout(name: *const c_char) -> i32 {
     }
 }
 
-/// Restore window layout
+/// ウィンドウレイアウトを復元
+/// 指定された名前のレイアウトをロードして適用する
+/// 引数: name - レイアウト名（C文字列）
+/// 戻り値: エラーコード（0=成功、その他=エラー）
 #[no_mangle]
 pub extern "C" fn restore_layout(name: *const c_char) -> i32 {
     let name_str = unsafe {
@@ -75,7 +84,9 @@ pub extern "C" fn restore_layout(name: *const c_char) -> i32 {
     }
 }
 
-/// Get list of saved layouts
+/// 保存されたレイアウトのリストを取得
+/// JSON配列形式の文字列を返す（例: ["Layout1", "Layout2"]）
+/// 戻り値: JSON文字列のポインタ（使用後はfree_string()で解放すること）
 #[no_mangle]
 pub extern "C" fn get_layout_list() -> *mut c_char {
     match WindowRestore::new() {
@@ -92,7 +103,10 @@ pub extern "C" fn get_layout_list() -> *mut c_char {
     }
 }
 
-/// Delete layout
+/// レイアウトを削除
+/// 指定された名前のレイアウトファイルを削除する
+/// 引数: name - レイアウト名（C文字列）
+/// 戻り値: エラーコード（0=成功、その他=エラー）
 #[no_mangle]
 pub extern "C" fn delete_layout(name: *const c_char) -> i32 {
     let name_str = unsafe {
@@ -111,7 +125,9 @@ pub extern "C" fn delete_layout(name: *const c_char) -> i32 {
     }
 }
 
-/// Check if accessibility permissions are granted
+/// アクセシビリティ権限をチェック
+/// macOSのアクセシビリティ権限が付与されているか確認する
+/// 戻り値: 0=権限あり、1=権限なし、99=エラー
 #[no_mangle]
 pub extern "C" fn check_permissions() -> i32 {
     match WindowRestore::new() {
@@ -126,7 +142,9 @@ pub extern "C" fn check_permissions() -> i32 {
     }
 }
 
-/// Free memory allocated by get_layout_list
+/// get_layout_listで割り当てられたメモリを解放
+/// Swiftで文字列を使い終わった後に必ず呼び出すこと
+/// 引数: s - 解放する文字列のポインタ
 #[no_mangle]
 pub extern "C" fn free_string(s: *mut c_char) {
     if !s.is_null() {
@@ -136,16 +154,19 @@ pub extern "C" fn free_string(s: *mut c_char) {
     }
 }
 
-/// Initialize the library
+/// ライブラリを初期化
+/// アプリケーション起動時に一度だけ呼び出す
+/// ロギングシステムなどの初期化を行う
 #[no_mangle]
 pub extern "C" fn init_library() -> i32 {
-    // Initialize logging
+    // ロギングシステムの初期化
     env_logger::init();
     log::info!("Window Restore library initialized");
     ERROR_SUCCESS
 }
 
-/// Cleanup the library
+/// ライブラリのクリーンアップ
+/// アプリケーション終了時に呼び出す
 #[no_mangle]
 pub extern "C" fn cleanup_library() -> i32 {
     log::info!("Window Restore library cleanup");

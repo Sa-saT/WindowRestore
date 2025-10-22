@@ -1,21 +1,23 @@
 //! Configuration management functionality
+//! アプリケーション設定の管理機能
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-/// Application configuration
+/// アプリケーション設定
+/// JSON形式でディスクに保存される
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    pub auto_restore: bool,
-    pub display_change_detection: bool,
-    pub exclude_apps: Vec<String>,
-    pub minimize_hidden_windows: bool,
-    pub restore_delay_ms: u64,
-    pub max_retry_attempts: u32,
-    pub scan_interval_ms: u64,
-    pub max_memory_usage_mb: u64,
+    pub auto_restore: bool,                  // 自動復元を有効にするか
+    pub display_change_detection: bool,      // ディスプレイ変更を検知するか
+    pub exclude_apps: Vec<String>,          // 除外するアプリのバンドルIDリスト
+    pub minimize_hidden_windows: bool,       // 最小化・非表示ウィンドウを除外するか
+    pub restore_delay_ms: u64,              // 復元時の遅延（ミリ秒）
+    pub max_retry_attempts: u32,            // 最大再試行回数
+    pub scan_interval_ms: u64,              // スキャン間隔（ミリ秒）
+    pub max_memory_usage_mb: u64,           // 最大メモリ使用量（MB）
 }
 
 impl Default for Config {
@@ -34,7 +36,8 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Load configuration from disk
+    /// ディスクから設定を読み込む
+    /// ファイルが存在しない場合はデフォルト設定を作成して保存する
     pub fn load() -> Result<Self> {
         let config_path = Self::get_config_path()?;
         
@@ -49,7 +52,8 @@ impl Config {
         }
     }
 
-    /// Save configuration to disk
+    /// 設定をディスクに保存
+    /// JSON形式で保存される
     pub fn save(&self) -> Result<()> {
         let config_path = Self::get_config_path()?;
         
@@ -65,7 +69,8 @@ impl Config {
         Ok(())
     }
 
-    /// Get the configuration file path
+    /// 設定ファイルのパスを取得
+    /// ~/Library/Application Support/window_restore/config.json
     fn get_config_path() -> Result<PathBuf> {
         let mut path = dirs::data_dir()
             .ok_or_else(|| anyhow::anyhow!("Failed to get data directory"))?;
@@ -74,19 +79,22 @@ impl Config {
         Ok(path)
     }
 
-    /// Check if an app should be excluded
+    /// アプリが除外対象かチェック
+    /// 引数: bundle_id - 確認するアプリのバンドルID
     pub fn is_app_excluded(&self, bundle_id: &str) -> bool {
         self.exclude_apps.contains(&bundle_id.to_string())
     }
 
-    /// Add an app to the exclusion list
+    /// アプリを除外リストに追加
+    /// 引数: bundle_id - 除外するアプリのバンドルID
     pub fn exclude_app(&mut self, bundle_id: &str) {
         if !self.exclude_apps.contains(&bundle_id.to_string()) {
             self.exclude_apps.push(bundle_id.to_string());
         }
     }
 
-    /// Remove an app from the exclusion list
+    /// アプリを除外リストから削除
+    /// 引数: bundle_id - 除外を解除するアプリのバンドルID
     pub fn include_app(&mut self, bundle_id: &str) {
         self.exclude_apps.retain(|id| id != bundle_id);
     }

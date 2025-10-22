@@ -1,40 +1,45 @@
 //! Window restoration functionality for macOS
+//! macOS用ウィンドウ復元機能
+//! 保存されたレイアウトに基づいてウィンドウを復元する
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+// use std::collections::HashMap; // 将来的に使用予定
 
-use crate::window_scanner::{WindowInfo, WindowFrame};
+use crate::window_scanner::WindowInfo;
 
-/// Layout structure for saving and restoring
+/// レイアウト構造体
+/// 保存・復元に使用するレイアウト情報
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Layout {
-    pub layout_name: String,
-    pub created_at: String,
-    pub updated_at: String,
-    pub windows: Vec<WindowInfo>,
+    pub layout_name: String,  // レイアウト名
+    pub created_at: String,   // 作成日時
+    pub updated_at: String,   // 更新日時
+    pub windows: Vec<WindowInfo>, // ウィンドウ情報のリスト
 }
 
-/// Window restorer for macOS
+/// macOS用ウィンドウリストアラー
+/// ウィンドウの位置・サイズを復元する
 pub struct WindowRestorer {
-    // Internal state for window restoration
+    // ウィンドウ復元の内部状態
 }
 
 impl WindowRestorer {
-    /// Create a new WindowRestorer instance
+    /// 新しいWindowRestorerインスタンスを作成
     pub fn new() -> Result<Self> {
-        // TODO: Initialize window restoration capabilities
+        // TODO: ウィンドウ復元機能を初期化
         Ok(Self {})
     }
 
-    /// Restore a layout
+    /// レイアウトを復元
+    /// 引数: layout - 復元するレイアウト情報
     pub fn restore_layout(&self, layout: &Layout) -> Result<()> {
-        // TODO: Implement window restoration
-        // This will:
-        // 1. Check if applications are running
-        // 2. Launch applications if needed
-        // 3. Move windows to correct positions and sizes
-        // 4. Handle display changes
+        // TODO: ウィンドウ復元を実装
+        // 実行内容:
+        // 1. アプリケーションが実行中かチェック
+        // 2. 必要に応じてアプリケーションを起動
+        // 3. ウィンドウを正しい位置とサイズに移動
+        // 4. ディスプレイの変更に対応
         
         log::info!("Restoring layout: {}", layout.layout_name);
         
@@ -45,23 +50,26 @@ impl WindowRestorer {
         Ok(())
     }
 
-    /// Restore a single window
+    /// 単一のウィンドウを復元
+    /// 引数: window - 復元するウィンドウ情報
     fn restore_window(&self, window: &WindowInfo) -> Result<()> {
-        // TODO: Implement single window restoration
+        // TODO: 単一ウィンドウの復元を実装
         log::debug!("Restoring window: {} - {}", window.app_name, window.title);
         Ok(())
     }
 
-    /// Launch application if not running
+    /// アプリケーションが実行中でなければ起動
+    /// 引数: bundle_id - 起動するアプリのバンドルID
     fn launch_application(&self, bundle_id: &str) -> Result<()> {
-        // TODO: Implement application launching
+        // TODO: アプリケーション起動を実装
         log::debug!("Launching application: {}", bundle_id);
         Ok(())
     }
 
-    /// Move window to specified position and size
+    /// ウィンドウを指定された位置とサイズに移動
+    /// 引数: window - 移動するウィンドウ情報
     fn move_window(&self, window: &WindowInfo) -> Result<()> {
-        // TODO: Implement window positioning
+        // TODO: ウィンドウの位置設定を実装
         log::debug!("Moving window to: {:?}", window.frame);
         Ok(())
     }

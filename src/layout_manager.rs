@@ -1,21 +1,25 @@
 //! Layout management functionality
+//! レイアウト管理機能
+//! ウィンドウレイアウトの保存・読み込み・削除を行う
 
 use anyhow::Result;
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize}; // 将来的に使用予定
 use std::fs;
 use std::path::PathBuf;
-use chrono::{DateTime, Utc};
+use chrono::Utc; // DateTimeは将来的に使用予定
 
 use crate::window_scanner::WindowInfo;
 use crate::window_restorer::Layout;
 
-/// Layout manager for saving and loading layouts
+/// レイアウトマネージャー
+/// レイアウトの保存と読み込みを管理する
 pub struct LayoutManager {
-    layouts_dir: PathBuf,
+    layouts_dir: PathBuf,  // レイアウトファイルを保存するディレクトリ
 }
 
 impl LayoutManager {
-    /// Create a new LayoutManager instance
+    /// 新しいLayoutManagerインスタンスを作成
+    /// レイアウトディレクトリが存在しない場合は作成する
     pub fn new() -> Result<Self> {
         let layouts_dir = Self::get_layouts_dir()?;
         
@@ -27,7 +31,8 @@ impl LayoutManager {
         Ok(Self { layouts_dir })
     }
 
-    /// Get the layouts directory path
+    /// レイアウトディレクトリのパスを取得
+    /// ~/Library/Application Support/window_restore/layouts/
     fn get_layouts_dir() -> Result<PathBuf> {
         let mut path = dirs::data_dir()
             .ok_or_else(|| anyhow::anyhow!("Failed to get data directory"))?;
@@ -36,7 +41,8 @@ impl LayoutManager {
         Ok(path)
     }
 
-    /// Save a layout to disk
+    /// レイアウトをディスクに保存
+    /// 引数: name - レイアウト名、windows - ウィンドウ情報の配列
     pub fn save_layout(&self, name: &str, windows: &[WindowInfo]) -> Result<()> {
         let now = Utc::now();
         let layout = Layout {
@@ -54,7 +60,8 @@ impl LayoutManager {
         Ok(())
     }
 
-    /// Load a layout from disk
+    /// レイアウトをディスクから読み込む
+    /// 引数: name - 読み込むレイアウトの名前
     pub fn load_layout(&self, name: &str) -> Result<Layout> {
         let file_path = self.layouts_dir.join(format!("{}.json", name));
         let json = fs::read_to_string(file_path)?;
@@ -62,7 +69,8 @@ impl LayoutManager {
         Ok(layout)
     }
 
-    /// List all saved layouts
+    /// 保存されたすべてのレイアウトをリスト
+    /// 戻り値: レイアウト名の配列
     pub fn list_layouts(&self) -> Result<Vec<String>> {
         let mut layouts = Vec::new();
         
@@ -83,7 +91,8 @@ impl LayoutManager {
         Ok(layouts)
     }
 
-    /// Delete a layout
+    /// レイアウトを削除
+    /// 引数: name - 削除するレイアウトの名前
     pub fn delete_layout(&self, name: &str) -> Result<()> {
         let file_path = self.layouts_dir.join(format!("{}.json", name));
         fs::remove_file(file_path)?;
@@ -92,7 +101,8 @@ impl LayoutManager {
         Ok(())
     }
 
-    /// Check if a layout exists
+    /// レイアウトが存在するかチェック
+    /// 引数: name - 確認するレイアウトの名前
     pub fn layout_exists(&self, name: &str) -> bool {
         let file_path = self.layouts_dir.join(format!("{}.json", name));
         file_path.exists()

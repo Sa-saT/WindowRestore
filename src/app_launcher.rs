@@ -1,20 +1,24 @@
 //! Application launcher functionality
+//! アプリケーション起動機能
+//! macOSのアプリケーションを起動・管理する
 
 use anyhow::Result;
 use std::process::Command;
 
-/// Application launcher for macOS
+/// macOS用アプリケーションランチャー
+/// アプリケーションの起動と実行状態の確認を行う
 pub struct AppLauncher {
-    // Internal state for app launching
+    // アプリ起動の内部状態
 }
 
 impl AppLauncher {
-    /// Create a new AppLauncher instance
+    /// 新しいAppLauncherインスタンスを作成
     pub fn new() -> Result<Self> {
         Ok(Self {})
     }
 
-    /// Launch an application by bundle ID
+    /// バンドルIDを指定してアプリケーションを起動
+    /// 引数: bundle_id - 起動するアプリのバンドルID（例: com.apple.safari）
     pub fn launch_app(&self, bundle_id: &str) -> Result<()> {
         log::info!("Launching application: {}", bundle_id);
         
@@ -32,7 +36,8 @@ impl AppLauncher {
         Ok(())
     }
 
-    /// Check if an application is running
+    /// アプリケーションが実行中かチェック
+    /// 引数: bundle_id - 確認するアプリのバンドルID
     pub fn is_app_running(&self, bundle_id: &str) -> bool {
         let output = Command::new("pgrep")
             .arg("-f")
@@ -45,7 +50,8 @@ impl AppLauncher {
         }
     }
 
-    /// Get running applications
+    /// 実行中のアプリケーション一覧を取得
+    /// 戻り値: 実行中アプリの名前リスト
     pub fn get_running_apps(&self) -> Result<Vec<String>> {
         let output = Command::new("ps")
             .arg("-ax")
@@ -63,7 +69,8 @@ impl AppLauncher {
         Ok(apps)
     }
 
-    /// Wait for application to start
+    /// アプリケーションの起動を待機
+    /// 引数: bundle_id - 待機するアプリのバンドルID, timeout_ms - タイムアウト（ミリ秒）
     pub fn wait_for_app(&self, bundle_id: &str, timeout_ms: u64) -> Result<()> {
         let start_time = std::time::Instant::now();
         let timeout = std::time::Duration::from_millis(timeout_ms);
