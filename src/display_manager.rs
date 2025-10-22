@@ -5,6 +5,10 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use core_graphics::display::{
+    CGGetActiveDisplayList, CGMainDisplayID, CGDisplayBounds, CGDirectDisplayID,
+};
+use core_graphics::geometry::CGRect;
 
 /// ディスプレイ情報構造体
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,20 +50,52 @@ impl DisplayManager {
     /// ディスプレイ情報を更新
     /// Core Graphicsを使用して最新のディスプレイ情報を取得
     pub fn refresh_displays(&mut self) -> Result<()> {
-        // TODO: Core Graphicsから実ディスプレイ一覧を取得する実装に置き換え
-        // ここでは暫定的にメインディスプレイ相当の1枚を登録する
-        log::info!("Refreshing display information (temporary main display only)");
+        log::info!("Refreshing display information (Core Graphics)");
 
         self.displays.clear();
 
-        let main = DisplayInfo {
-            uuid: "main".to_string(),
-            name: "Main Display".to_string(),
-            frame: DisplayFrame { x: 0.0, y: 0.0, width: 1920.0, height: 1080.0 },
-            is_main: true,
-            scale_factor: 2.0,
-        };
-        self.displays.insert(main.uuid.clone(), main);
+        unsafe {
+            // まずはディスプレイ数を取得
+            let mut display_count: u32 = 0;
+            let status = CGGetActiveDisplayList(0, std::ptr::null_mut(), &mut display_count);
+            if status != 0 {
+                return Err(anyhow::anyhow!("CGGetActiveDisplayList count failed: {}", status));
+            }
+
+            // 実際のリストを取得
+            let mut ids: Vec<CGDirectDisplayID> = vec![0; display_count as usize];
+            let status = CGGetActiveDisplayList(display_count, ids.as_mut_ptr(), &mut display_count);
+            if status != 0 {
+                return Err(anyhow::anyhow!("CGGetActiveDisplayList list failed: {}", status));
+            }
+
+            let main_id = CGMainDisplayID();
+
+            for (idx, id) in ids.into_iter().enumerate() {
+                let rect: CGRect = CGDisplayBounds(id);
+                let (x, y, w, h) = (
+                    rect.origin.x as f64,
+                    rect.origin.y as f64,
+                    rect.size.width as f64,
+                    rect.size.height as f64,
+                );
+
+                // UUID は本来 CGDisplayCreateUUIDFromDisplayID を使用するが、crate 未提供のため簡易IDを使用
+                let uuid = format!("display-{}", id);
+                let name = if id == main_id { "Main Display".to_string() } else { format!("Display {}", idx + 1) };
+                let is_main = id == main_id;
+
+                // スケールファクターは正確には NSScreen 等から取得が必要。暫定で1.0
+                let info = DisplayInfo {
+                    uuid: uuid.clone(),
+                    name,
+                    frame: DisplayFrame { x, y, width: w, height: h },
+                    is_main,
+                    scale_factor: 1.0,
+                };
+                self.displays.insert(uuid, info);
+            }
+        }
 
         Ok(())
     }
