@@ -4,6 +4,11 @@
 
 use anyhow::Result;
 
+#[link(name = "ApplicationServices", kind = "framework")]
+extern "C" {
+    fn AXIsProcessTrusted() -> u8; // macOS Boolean (UInt8)
+}
+
 /// macOS用権限チェッカー
 /// アプリに必要な権限が付与されているかチェックする
 pub struct PermissionChecker {
@@ -19,13 +24,9 @@ impl PermissionChecker {
     /// アクセシビリティ権限が付与されているかチェック
     /// 戻り値: 権限がある場合true
     pub fn check_accessibility_permission(&self) -> bool {
-        // TODO: AXIsProcessTrusted()を使用してアクセシビリティ権限をチェック
-        // Accessibility APIを使用してアプリが権限を持っているか確認する
-        
         log::debug!("Checking accessibility permissions");
-        
-        // Placeholder implementation
-        false
+        // AXIsProcessTrusted は現在のプロセスがアクセシビリティ権限を持つかを返す
+        unsafe { AXIsProcessTrusted() != 0 }
     }
 
     /// アクセシビリティ権限をリクエスト

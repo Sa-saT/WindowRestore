@@ -35,6 +35,8 @@
 
 #define ERROR_WINDOW_NOT_FOUND 3
 
+extern uint8_t AXIsProcessTrusted(void);
+
 /**
  * アクセシビリティ権限をチェック
  * macOSのアクセシビリティ権限が付与されているか確認する
