@@ -125,13 +125,61 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // アイコンの設定
         if let button = statusBarItem.button {
-            // システムアイコンを使用（後でカスタムアイコンに変更予定）
-            button.image = NSImage(systemSymbolName: "window.2.badge.gearshape", accessibilityDescription: "Window Restore")
-            button.image?.isTemplate = true
+            // カスタムアイコンを試みる（存在しない場合はプログラムで作成）
+            if let customIcon = NSImage(named: "MenuBarIcon") {
+                button.image = customIcon
+                button.image?.isTemplate = true
+            } else {
+                // プログラマティックにアイコンを作成
+                button.image = createMenuBarIcon()
+                button.image?.isTemplate = true
+            }
             button.toolTip = "Window Restore - ウィンドウレイアウト管理"
         }
         
         print("ステータスバーアイテムの設定が完了しました")
+    }
+    
+    /// メニューバーアイコンをプログラマティックに作成
+    /// シンプルなウィンドウグリッドアイコンを描画
+    /// - Returns: メニューバー用のNSImage
+    private func createMenuBarIcon() -> NSImage {
+        let size = NSSize(width: 18, height: 18)
+        let image = NSImage(size: size)
+        
+        image.lockFocus()
+        
+        // 背景を透明に
+        NSColor.clear.setFill()
+        NSBezierPath(rect: NSRect(origin: .zero, size: size)).fill()
+        
+        // 2x2のウィンドウグリッドを描画
+        let lineWidth: CGFloat = 1.5
+        let padding: CGFloat = 2.0
+        let gridSize = size.width - (padding * 2)
+        let cellSize = gridSize / 2
+        
+        // 描画色を設定（テンプレート画像として使用するため黒）
+        NSColor.black.setStroke()
+        
+        // 4つの小さな四角形を描画（2x2グリッド）
+        for row in 0..<2 {
+            for col in 0..<2 {
+                let x = padding + (cellSize * CGFloat(col)) + (lineWidth / 2)
+                let y = padding + (cellSize * CGFloat(row)) + (lineWidth / 2)
+                let w = cellSize - lineWidth
+                let h = cellSize - lineWidth
+                
+                let rect = NSRect(x: x, y: y, width: w, height: h)
+                let path = NSBezierPath(rect: rect)
+                path.lineWidth = lineWidth
+                path.stroke()
+            }
+        }
+        
+        image.unlockFocus()
+        
+        return image
     }
     
     /// メニューコントローラーの設定

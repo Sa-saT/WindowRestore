@@ -2,7 +2,7 @@
 //! macOS用ウィンドウ復元機能
 //! 保存されたレイアウトに基づいてウィンドウを復元する
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use serde::{Deserialize, Serialize};
 // use std::collections::HashMap; // 将来的に使用予定
 use std::process::Command; // AppleScript実行用（暫定実装）
@@ -31,7 +31,7 @@ pub struct WindowRestorer {
     display_manager: DisplayManager,   // ディスプレイ管理
     permission_checker: PermissionChecker, // 権限チェック
     restore_delay_ms: u64,            // 復元間隔（ミリ秒）
-    max_retry_attempts: u32,          // 最大リトライ回数
+    _max_retry_attempts: u32,         // 最大リトライ回数
 }
 
 impl WindowRestorer {
@@ -46,7 +46,7 @@ impl WindowRestorer {
             display_manager,
             permission_checker,
             restore_delay_ms: 1000,  // デフォルト1秒間隔
-            max_retry_attempts: 3,   // デフォルト3回リトライ
+            _max_retry_attempts: 3,   // デフォルト3回リトライ
         })
     }
 
@@ -114,25 +114,37 @@ impl WindowRestorer {
     /// 単一のウィンドウを復元
     /// 引数: window - 復元するウィンドウ情報
     fn restore_window(&self, window: &WindowInfo) -> Result<()> {
-        log::debug!("Restoring window: {} - {}", window.app_name, window.title);
-        
-        // ウィンドウが見つかるまでリトライ
-        for attempt in 1..=self.max_retry_attempts {
-            match self.find_and_restore_window(window) {
-                Ok(_) => {
-                    log::debug!("Window restored successfully on attempt {}", attempt);
-                    return Ok(());
-                }
-                Err(e) if attempt < self.max_retry_attempts => {
-                    log::debug!("Attempt {} failed: {}, retrying...", attempt, e);
-                    thread::sleep(Duration::from_millis(500));
-                }
-                Err(e) => {
-                    return Err(anyhow::anyhow!("Failed to restore window after {} attempts: {}", self.max_retry_attempts, e));
-                }
-            }
+        // 関連ディスプレイ情報を取得
+        let target_display = match self.display_manager.get_display_by_uuid(&window.display_uuid) {
+            Some(display) => display,
+            None => return Err(anyhow::anyhow!("Target display not found for window: {}", window.title)),
+        };
+
+        // Change function call to match expected input
+        let (display_uuid, new_x, new_y) = self.display_manager.screen_to_display_coords(
+            window.frame.x,
+            window.frame.y
+        ).ok_or_else(|| anyhow::anyhow!("Failed to convert screen coordinates for window: {}", window.title))?;
+
+        if display_uuid != window.display_uuid {
+            return Err(anyhow::anyhow!("Target display mismatch for window movement: {}", window.title));
         }
-        
+
+        // osascriptによるウィンドウの移動（暫定）
+        let script = format!(
+            "tell application \"System Events\" to set position of first window of application process \"{}\" to {{{}, {}}}",
+            window.app_name, new_x, new_y
+        );
+
+        let output = Command::new("osascript")
+            .arg("-e")
+            .arg(script)
+            .output()?;
+
+        if !output.status.success() {
+            return Err(anyhow::anyhow!("Failed to move window via AppleScript: {}", window.title));
+        }
+
         Ok(())
     }
     
@@ -293,5 +305,25 @@ end tell"#,
         let output = Command::new("osascript").arg("-e").arg(script).output()?;
         if !output.status.success() { return Err(anyhow::anyhow!("Failed to show window")); }
         Ok(())
+    }
+
+    /// アプリケーション起動を待機
+    /// 引数: bundle_id - アプリのバンドルID
+    fn wait_for_app(&self, bundle_id: &str, timeout_ms: u64) -> Result<()> {
+        log::info!("Waiting for application to launch: {}", bundle_id);
+
+        let mut elapsed = 0;
+        let interval = 500; // チェック間隔500ミリ秒
+
+        while elapsed < timeout_ms {
+            if self.app_launcher.is_app_running(bundle_id) {
+                log::info!("Application is running: {}", bundle_id);
+                return Ok(());
+            }
+            thread::sleep(Duration::from_millis(interval));
+            elapsed += interval;
+        }
+
+        Err(anyhow!("Timeout waiting for application to launch: {}", bundle_id))
     }
 }
