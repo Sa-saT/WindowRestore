@@ -147,8 +147,16 @@ impl WindowRestorer {
             .find(|w| w.app_name == window.app_name && w.title == window.title)
             .ok_or_else(|| anyhow::anyhow!("Window not found: {} - {}", window.app_name, window.title))?;
         
+        // ディスプレイに基づく座標補正（将来：window.display_uuidでの判定）
+        let (x, y) = if let Some((screen_x, screen_y)) = self.display_manager.display_to_screen_coords("main", window.frame.x, window.frame.y) {
+            (screen_x, screen_y)
+        } else {
+            (window.frame.x, window.frame.y)
+        };
+        let corrected = crate::window_scanner::WindowFrame { x, y, width: window.frame.width, height: window.frame.height };
+
         // ウィンドウを移動
-        self.move_window_to_position(target_window, &window.frame)?;
+        self.move_window_to_position(target_window, &corrected)?;
         
         // ウィンドウレベルを設定
         self.set_window_level(target_window, window.window_level)?;

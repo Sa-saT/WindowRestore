@@ -46,14 +46,21 @@ impl DisplayManager {
     /// ディスプレイ情報を更新
     /// Core Graphicsを使用して最新のディスプレイ情報を取得
     pub fn refresh_displays(&mut self) -> Result<()> {
-        // TODO: Core Graphicsを使用してディスプレイ情報を取得
-        // CGDisplayCreateUUIDFromDisplayIDなどのAPIを使用する
-        
-        log::info!("Refreshing display information");
-        
-        // Placeholder implementation
+        // TODO: Core Graphicsから実ディスプレイ一覧を取得する実装に置き換え
+        // ここでは暫定的にメインディスプレイ相当の1枚を登録する
+        log::info!("Refreshing display information (temporary main display only)");
+
         self.displays.clear();
-        
+
+        let main = DisplayInfo {
+            uuid: "main".to_string(),
+            name: "Main Display".to_string(),
+            frame: DisplayFrame { x: 0.0, y: 0.0, width: 1920.0, height: 1080.0 },
+            is_main: true,
+            scale_factor: 2.0,
+        };
+        self.displays.insert(main.uuid.clone(), main);
+
         Ok(())
     }
 
