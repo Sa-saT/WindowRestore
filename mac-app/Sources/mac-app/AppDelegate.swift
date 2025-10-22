@@ -24,6 +24,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// レイアウトセレクター
     private var layoutSelector: LayoutSelector?
     
+    /// 設定ウィンドウ
+    private var settingsWindow: SettingsWindow?
+    
     /// アプリケーションの設定
     private var appSettings: AppSettings
     
@@ -322,8 +325,14 @@ extension AppDelegate: MenuControllerDelegate {
     func showSettings() {
         print("設定画面を表示中...")
         
-        // TODO: 設定画面の実装
-        showInfoNotification(title: "設定", message: "設定画面は今後実装予定です")
+        // 設定ウィンドウが未作成の場合は作成
+        if settingsWindow == nil {
+            settingsWindow = SettingsWindow()
+            settingsWindow?.settingsDelegate = self
+        }
+        
+        // 設定ウィンドウを表示
+        settingsWindow?.show()
     }
     
     /// アプリケーションを終了
@@ -391,6 +400,17 @@ extension AppDelegate: LayoutSelectorDelegate {
     func layoutDeleted(name: String) {
         print("レイアウトが削除されました: \(name)")
         deleteLayout(name: name)
+    }
+}
+
+/// 設定ウィンドウのデリゲート
+/// 設定変更のイベントを処理
+extension AppDelegate: SettingsWindowDelegate {
+    
+    /// 設定が変更された
+    func settingsDidChange() {
+        print("設定が変更されました")
+        showSuccessNotification(title: "設定保存", message: "設定が正常に保存されました")
     }
 }
 

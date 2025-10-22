@@ -111,38 +111,88 @@ impl WindowRestorer {
         Ok(())
     }
 
-    /// 単一のウィンドウを復元
+    /// 単一のウィンドウを復元（リトライ機能付き）
     /// 引数: window - 復元するウィンドウ情報
     fn restore_window(&self, window: &WindowInfo) -> Result<()> {
         // 関連ディスプレイ情報を取得
-        let target_display = match self.display_manager.get_display_by_uuid(&window.display_uuid) {
+        let _target_display = match self.display_manager.get_display_by_uuid(&window.display_uuid) {
             Some(display) => display,
-            None => return Err(anyhow::anyhow!("Target display not found for window: {}", window.title)),
+            None => {
+                log::warn!("Target display not found for window: {}, falling back to main display", window.title);
+                // フォールバック: メインディスプレイを使用
+                self.display_manager.get_main_display()
+                    .ok_or_else(|| anyhow!("No displays available"))?
+            }
         };
 
-        // Change function call to match expected input
+        // 座標変換（エラー時はオリジナル座標を使用）
         let (display_uuid, new_x, new_y) = self.display_manager.screen_to_display_coords(
             window.frame.x,
             window.frame.y
-        ).ok_or_else(|| anyhow::anyhow!("Failed to convert screen coordinates for window: {}", window.title))?;
+        ).unwrap_or_else(|| {
+            log::warn!("Failed to convert coordinates, using original: x={}, y={}", window.frame.x, window.frame.y);
+            (window.display_uuid.clone(), window.frame.x, window.frame.y)
+        });
 
         if display_uuid != window.display_uuid {
-            return Err(anyhow::anyhow!("Target display mismatch for window movement: {}", window.title));
+            log::warn!("Display UUID mismatch for window: {}", window.title);
         }
 
+        // リトライロジック付きでウィンドウを移動
+        let max_retries = 3;
+        let mut last_error = None;
+        
+        for attempt in 1..=max_retries {
+            match self.try_restore_window_position(window, new_x, new_y) {
+                Ok(_) => {
+                    log::info!("Successfully restored window on attempt {}: {}", attempt, window.title);
+                    return Ok(());
+                }
+                Err(e) => {
+                    log::warn!("Attempt {}/{} failed for window '{}': {}", attempt, max_retries, window.title, e);
+                    last_error = Some(e);
+                    if attempt < max_retries {
+                        thread::sleep(Duration::from_millis(500));
+                    }
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| anyhow!("Failed to restore window after {} attempts", max_retries)))
+    }
+    
+    /// ウィンドウ位置の復元を試行（単一試行）
+    /// 引数: window - 復元するウィンドウ、x, y - 目標座標
+    fn try_restore_window_position(&self, window: &WindowInfo, x: f64, y: f64) -> Result<()> {
         // osascriptによるウィンドウの移動（暫定）
         let script = format!(
-            "tell application \"System Events\" to set position of first window of application process \"{}\" to {{{}, {}}}",
-            window.app_name, new_x, new_y
+            r#"tell application "System Events"
+  tell process "{}"
+    try
+      set position of first window to {{{}, {}}}
+      return "OK"
+    on error errMsg
+      return errMsg
+    end try
+  end tell
+end tell"#,
+            window.app_name.replace('"', "\\\""), x as i64, y as i64
         );
 
         let output = Command::new("osascript")
             .arg("-e")
             .arg(script)
-            .output()?;
+            .output()
+            .map_err(|e| anyhow!("Failed to execute osascript: {}", e))?;
 
         if !output.status.success() {
-            return Err(anyhow::anyhow!("Failed to move window via AppleScript: {}", window.title));
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow!("AppleScript execution failed: {}", stderr));
+        }
+        
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        if !stdout.trim().ends_with("OK") {
+            return Err(anyhow!("AppleScript returned error: {}", stdout.trim()));
         }
 
         Ok(())
