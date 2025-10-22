@@ -38,7 +38,7 @@ pub enum WindowRestoreError {
 
 /// Main entry point for the Window Restore library
 pub struct WindowRestore {
-    config: config::Config,
+    _config: config::Config,
     layout_manager: layout_manager::LayoutManager,
     window_scanner: window_scanner::WindowScanner,
     window_restorer: window_restorer::WindowRestorer,
@@ -53,7 +53,7 @@ impl WindowRestore {
         let window_restorer = window_restorer::WindowRestorer::new()?;
 
         Ok(Self {
-            config,
+            _config: config,
             layout_manager,
             window_scanner,
             window_restorer,
@@ -68,7 +68,7 @@ impl WindowRestore {
     }
 
     /// Restore window layout with given name
-    pub fn restore_layout(&self, name: &str) -> Result<()> {
+    pub fn restore_layout(&mut self, name: &str) -> Result<()> {
         let layout = self.layout_manager.load_layout(name)?;
         self.window_restorer.restore_layout(&layout)?;
         Ok(())
