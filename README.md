@@ -1,0 +1,79 @@
+# Window Restore
+
+macOS向けウィンドウ位置・サイズ・ディスプレイ復元アプリケーション
+
+## 概要
+
+Window Restoreは、macOS上でユーザーのウィンドウ配置（位置・サイズ・所属ディスプレイ）を記録・復元し、必要に応じて該当アプリを起動してレイアウトを再現するアプリケーションです。
+
+## 特徴
+
+- 🪟 **ウィンドウ状態の保存・復元**: 現在開いているウィンドウの位置・サイズ・ディスプレイ情報を記録
+- 📱 **メニューバー常駐**: メニューバーに常駐し、簡単な操作でレイアウトを管理
+- 🎯 **複数レイアウト対応**: 名前付きレイアウトを複数保存・切り替え可能
+- ⚙️ **柔軟な設定**: 自動復元・ディスプレイ変化検知などの設定オプション
+- 🔐 **セキュア**: アクセシビリティ権限を適切に管理
+
+## 技術仕様
+
+- **対象OS**: macOS 15 (Sequoia) 以降
+- **開発言語**: Rust (ロジック) + Swift (UI)
+- **フレームワーク**: AppKit
+- **ビルドシステム**: Cargo + Xcode
+
+## インストール
+
+1. リリースページから最新版をダウンロード
+2. `.app`ファイルを`/Applications/`にコピー
+3. アプリケーションを起動
+4. アクセシビリティ権限を許可
+
+## 使用方法
+
+1. メニューバーのWindow Restoreアイコンをクリック
+2. 「現在のレイアウトを保存」でレイアウトを保存
+3. 「レイアウトを復元」で保存されたレイアウトを復元
+4. 「レイアウト一覧」で保存されたレイアウトを管理
+
+## 開発
+
+### 必要な環境
+
+- Rust 1.70+
+- Xcode 15+
+- macOS 15+
+
+### ビルド手順
+
+```bash
+# Rustライブラリのビルド
+cargo build --release --target aarch64-apple-darwin
+
+# Cヘッダーの生成
+cbindgen --config cbindgen.toml --crate window_restore --output mac-app/Bridging/window_restore.h
+
+# macOSアプリのビルド
+xcodebuild -project mac-app/MacApp.xcodeproj -scheme MacApp -configuration Release
+```
+
+### テスト
+
+```bash
+# 単体テスト
+cargo test
+
+# 統合テスト
+cargo test --test integration_tests
+```
+
+## ライセンス
+
+MIT License
+
+## 貢献
+
+プルリクエストやイシューの報告を歓迎します。
+
+## サポート
+
+問題が発生した場合は、GitHubのIssuesページで報告してください。
