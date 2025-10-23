@@ -3,9 +3,23 @@
 
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use std::sync::{Mutex, OnceLock};
 use anyhow::Result;
 
 use crate::{WindowRestore, WindowRestoreError};
+
+// 直近のエラーメッセージをFFIで取り出せるように保持
+static LAST_ERROR_MESSAGE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+
+fn set_last_error_message(message: String) {
+    let mutex = LAST_ERROR_MESSAGE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = mutex.lock() { *guard = Some(message); }
+}
+
+fn clear_last_error_message() {
+    let mutex = LAST_ERROR_MESSAGE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = mutex.lock() { *guard = None; }
+}
 
 /// FFI用エラーコード
 /// Swiftから呼び出した結果を判定するために使用
@@ -24,6 +38,7 @@ fn result_to_error_code(result: &Result<()>) -> i32 {
     match result {
         Ok(_) => ERROR_SUCCESS,
         Err(e) => {
+            set_last_error_message(format!("{}", e));
             if let Some(window_restore_error) = e.downcast_ref::<WindowRestoreError>() {
                 match window_restore_error {
                     WindowRestoreError::PermissionDenied(_) => ERROR_PERMISSION_DENIED,
@@ -46,12 +61,14 @@ fn result_to_error_code(result: &Result<()>) -> i32 {
 /// 戻り値: エラーコード（0=成功、その他=エラー）
 #[no_mangle]
 pub extern "C" fn save_current_layout(name: *const c_char) -> i32 {
+    if name.is_null() { return ERROR_UNKNOWN; }
     let name_str = unsafe {
         match CStr::from_ptr(name).to_str() {
             Ok(s) => s,
             Err(_) => return ERROR_UNKNOWN,
         }
     };
+    clear_last_error_message();
 
     match WindowRestore::new() {
         Ok(app) => {
@@ -68,12 +85,14 @@ pub extern "C" fn save_current_layout(name: *const c_char) -> i32 {
 /// 戻り値: エラーコード（0=成功、その他=エラー）
 #[no_mangle]
 pub extern "C" fn restore_layout(name: *const c_char) -> i32 {
+    if name.is_null() { return ERROR_UNKNOWN; }
     let name_str = unsafe {
         match CStr::from_ptr(name).to_str() {
             Ok(s) => s,
             Err(_) => return ERROR_UNKNOWN,
         }
     };
+    clear_last_error_message();
 
     match WindowRestore::new() {
         Ok(mut app) => {
@@ -89,6 +108,7 @@ pub extern "C" fn restore_layout(name: *const c_char) -> i32 {
 /// 戻り値: JSON文字列のポインタ（使用後はfree_string()で解放すること）
 #[no_mangle]
 pub extern "C" fn get_layout_list() -> *mut c_char {
+    clear_last_error_message();
     match WindowRestore::new() {
         Ok(app) => {
             match app.get_layout_list() {
@@ -96,10 +116,10 @@ pub extern "C" fn get_layout_list() -> *mut c_char {
                     let json = serde_json::to_string(&layouts).unwrap_or_else(|_| "[]".to_string());
                     CString::new(json).unwrap().into_raw()
                 }
-                Err(_) => CString::new("[]").unwrap().into_raw(),
+                Err(e) => { set_last_error_message(format!("{}", e)); CString::new("[]").unwrap().into_raw() },
             }
         }
-        Err(_) => CString::new("[]").unwrap().into_raw(),
+        Err(e) => { set_last_error_message(format!("{}", e)); CString::new("[]").unwrap().into_raw() },
     }
 }
 
@@ -109,12 +129,14 @@ pub extern "C" fn get_layout_list() -> *mut c_char {
 /// 戻り値: エラーコード（0=成功、その他=エラー）
 #[no_mangle]
 pub extern "C" fn delete_layout(name: *const c_char) -> i32 {
+    if name.is_null() { return ERROR_UNKNOWN; }
     let name_str = unsafe {
         match CStr::from_ptr(name).to_str() {
             Ok(s) => s,
             Err(_) => return ERROR_UNKNOWN,
         }
     };
+    clear_last_error_message();
 
     match WindowRestore::new() {
         Ok(app) => {
@@ -130,6 +152,7 @@ pub extern "C" fn delete_layout(name: *const c_char) -> i32 {
 /// 戻り値: 0=権限あり、1=権限なし、99=エラー
 #[no_mangle]
 pub extern "C" fn check_permissions() -> i32 {
+    clear_last_error_message();
     match WindowRestore::new() {
         Ok(app) => {
             if app.check_permissions() {
@@ -138,7 +161,7 @@ pub extern "C" fn check_permissions() -> i32 {
                 ERROR_PERMISSION_DENIED
             }
         }
-        Err(_) => ERROR_UNKNOWN,
+        Err(e) => { set_last_error_message(format!("{}", e)); ERROR_UNKNOWN },
     }
 }
 
@@ -171,4 +194,17 @@ pub extern "C" fn init_library() -> i32 {
 pub extern "C" fn cleanup_library() -> i32 {
     log::info!("Window Restore library cleanup");
     ERROR_SUCCESS
+}
+
+/// 直近のエラーメッセージを取得
+/// 戻り値: C文字列ポインタ（使用後はfree_stringで解放）
+#[no_mangle]
+pub extern "C" fn get_last_error_message() -> *mut c_char {
+    let mutex = LAST_ERROR_MESSAGE.get_or_init(|| Mutex::new(None));
+    if let Ok(guard) = mutex.lock() {
+        if let Some(message) = &*guard {
+            return CString::new(message.as_str()).unwrap_or_else(|_| CString::new("unknown error").unwrap()).into_raw();
+        }
+    }
+    CString::new("").unwrap().into_raw()
 }

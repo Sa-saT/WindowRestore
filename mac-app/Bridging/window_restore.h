@@ -66,6 +66,12 @@ int32_t delete_layout(const char *name);
 void free_string(char *s);
 
 /**
+ * 直近のエラーメッセージを取得
+ * 戻り値: C文字列ポインタ（使用後はfree_stringで解放）
+ */
+char *get_last_error_message(void);
+
+/**
  * 保存されたレイアウトのリストを取得
  * JSON配列形式の文字列を返す（例: ["Layout1", "Layout2"]）
  * 戻り値: JSON文字列のポインタ（使用後はfree_string()で解放すること）

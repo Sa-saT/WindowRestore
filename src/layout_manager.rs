@@ -41,18 +41,74 @@ impl LayoutManager {
         Ok(path)
     }
 
+    /// レイアウト名のバリデーション
+    /// - 空文字不可
+    /// - ファイル名に使えない文字は不可（/、\、:、*、?、"、<、>、|）
+    fn validate_layout_name(name: &str) -> Result<()> {
+        if name.trim().is_empty() {
+            return Err(anyhow::anyhow!("Layout name must not be empty"));
+        }
+        let invalid_chars = ['/', '\\', ':', '*', '?', '"', '<', '>', '|'];
+        if name.chars().any(|c| invalid_chars.contains(&c)) {
+            return Err(anyhow::anyhow!("Layout name contains invalid characters"));
+        }
+        Ok(())
+    }
+
+    /// レイアウト全体のバリデーション
+    /// - layout_name検証
+    /// - ウィンドウ配列の健全性チェック
+    pub fn validate_layout(&self, layout: &Layout) -> Result<()> {
+        Self::validate_layout_name(&layout.layout_name)?;
+        for w in &layout.windows {
+            if w.app_name.trim().is_empty() {
+                return Err(anyhow::anyhow!("Window app_name must not be empty"));
+            }
+            if w.title.trim().is_empty() {
+                return Err(anyhow::anyhow!("Window title must not be empty"));
+            }
+            if !w.frame.width.is_finite() || !w.frame.height.is_finite() || w.frame.width < 0.0 || w.frame.height < 0.0 {
+                return Err(anyhow::anyhow!("Window frame has invalid size"));
+            }
+            if !w.frame.x.is_finite() || !w.frame.y.is_finite() {
+                return Err(anyhow::anyhow!("Window frame has invalid position"));
+            }
+            if w.display_uuid.trim().is_empty() {
+                return Err(anyhow::anyhow!("Window display_uuid must not be empty"));
+            }
+        }
+        Ok(())
+    }
+
     /// レイアウトをディスクに保存
     /// 引数: name - レイアウト名、windows - ウィンドウ情報の配列
     pub fn save_layout(&self, name: &str, windows: &[WindowInfo]) -> Result<()> {
-        let now = Utc::now();
+        // 名前バリデーション
+        Self::validate_layout_name(name)?;
+
+        let file_path = self.layouts_dir.join(format!("{}.json", name));
+
+        // 既存レイアウトがある場合はcreated_atを保持
+        let created_at = if file_path.exists() {
+            if let Ok(existing_json) = fs::read_to_string(&file_path) {
+                if let Ok(existing_layout) = serde_json::from_str::<Layout>(&existing_json) {
+                    existing_layout.created_at
+                } else { Utc::now().to_rfc3339() }
+            } else { Utc::now().to_rfc3339() }
+        } else {
+            Utc::now().to_rfc3339()
+        };
+
         let layout = Layout {
             layout_name: name.to_string(),
-            created_at: now.to_rfc3339(),
-            updated_at: now.to_rfc3339(),
+            created_at,
+            updated_at: Utc::now().to_rfc3339(),
             windows: windows.to_vec(),
         };
 
-        let file_path = self.layouts_dir.join(format!("{}.json", name));
+        // レイアウトのバリデーション
+        self.validate_layout(&layout)?;
+
         let json = serde_json::to_string_pretty(&layout)?;
         fs::write(file_path, json)?;
         
@@ -63,9 +119,14 @@ impl LayoutManager {
     /// レイアウトをディスクから読み込む
     /// 引数: name - 読み込むレイアウトの名前
     pub fn load_layout(&self, name: &str) -> Result<Layout> {
+        // 名前バリデーション
+        Self::validate_layout_name(name)?;
+
         let file_path = self.layouts_dir.join(format!("{}.json", name));
         let json = fs::read_to_string(file_path)?;
         let layout: Layout = serde_json::from_str(&json)?;
+        // 読み込んだレイアウトのバリデーション
+        self.validate_layout(&layout)?;
         Ok(layout)
     }
 
@@ -94,6 +155,9 @@ impl LayoutManager {
     /// レイアウトを削除
     /// 引数: name - 削除するレイアウトの名前
     pub fn delete_layout(&self, name: &str) -> Result<()> {
+        // 名前バリデーション
+        Self::validate_layout_name(name)?;
+
         let file_path = self.layouts_dir.join(format!("{}.json", name));
         fs::remove_file(file_path)?;
         
