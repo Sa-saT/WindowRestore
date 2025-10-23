@@ -183,7 +183,7 @@ pub extern "C" fn free_string(s: *mut c_char) {
 #[no_mangle]
 pub extern "C" fn init_library() -> i32 {
     // ロギングシステムの初期化
-    env_logger::init();
+    let _ = env_logger::try_init(); // 二重初期化時は無視
     log::info!("Window Restore library initialized");
     ERROR_SUCCESS
 }
