@@ -34,8 +34,21 @@ impl LayoutManager {
     /// レイアウトディレクトリのパスを取得
     /// ~/Library/Application Support/window_restore/layouts/
     fn get_layouts_dir() -> Result<PathBuf> {
-        let mut path = dirs::data_dir()
-            .ok_or_else(|| anyhow::anyhow!("Failed to get data directory"))?;
+        // 優先: 環境変数で指定
+        if let Ok(base) = std::env::var("WINDOW_RESTORE_DATA_DIR") {
+            let mut path = PathBuf::from(base);
+            path.push("layouts");
+            return Ok(path);
+        }
+        // 通常: ユーザーデータディレクトリ
+        if let Some(mut path) = dirs::data_dir() {
+            path.push("window_restore");
+            path.push("layouts");
+            return Ok(path);
+        }
+        // フォールバック: プロジェクトのtarget配下（テストやサンドボックス向け）
+        let mut path = std::env::current_dir()?;
+        path.push("target");
         path.push("window_restore");
         path.push("layouts");
         Ok(path)
