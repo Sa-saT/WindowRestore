@@ -36,6 +36,26 @@ impl Default for Config {
 }
 
 impl Config {
+    /// 設定値のバリデーション
+    /// 不正値が含まれる場合はエラーを返す
+    pub fn validate(&self) -> Result<()> {
+        if self.restore_delay_ms > 60_000 {
+            return Err(anyhow::anyhow!("restore_delay_ms must be <= 60000"));
+        }
+        if self.max_retry_attempts > 10 {
+            return Err(anyhow::anyhow!("max_retry_attempts must be <= 10"));
+        }
+        if self.scan_interval_ms == 0 || self.scan_interval_ms > 86_400_000 {
+            return Err(anyhow::anyhow!("scan_interval_ms must be in 1..=86400000"));
+        }
+        if self.max_memory_usage_mb == 0 || self.max_memory_usage_mb > 4_096 {
+            return Err(anyhow::anyhow!("max_memory_usage_mb must be in 1..=4096"));
+        }
+        if self.exclude_apps.iter().any(|s| s.trim().is_empty()) {
+            return Err(anyhow::anyhow!("exclude_apps must not contain empty bundle ids"));
+        }
+        Ok(())
+    }
     /// ディスクから設定を読み込む
     /// ファイルが存在しない場合はデフォルト設定を作成して保存する
     pub fn load() -> Result<Self> {
@@ -44,7 +64,14 @@ impl Config {
         if config_path.exists() {
             let json = fs::read_to_string(config_path)?;
             let config: Config = serde_json::from_str(&json)?;
-            Ok(config)
+            if let Err(e) = config.validate() {
+                log::warn!("Invalid config detected, using defaults: {}", e);
+                let default = Config::default();
+                default.save()?;
+                Ok(default)
+            } else {
+                Ok(config)
+            }
         } else {
             let config = Config::default();
             config.save()?;
@@ -55,6 +82,8 @@ impl Config {
     /// 設定をディスクに保存
     /// JSON形式で保存される
     pub fn save(&self) -> Result<()> {
+        // 保存前に検証
+        self.validate()?;
         let config_path = Self::get_config_path()?;
         
         // Create config directory if it doesn't exist

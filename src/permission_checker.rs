@@ -32,12 +32,15 @@ impl PermissionChecker {
     /// アクセシビリティ権限をリクエスト
     /// システム環境設定のアクセシビリティセクションを開く
     pub fn request_accessibility_permission(&self) -> Result<()> {
-        // TODO: アクセシビリティ権限のリクエストを実装
-        // システム環境設定のアクセシビリティセクションを開く
-        
         log::info!("Requesting accessibility permissions");
-        
-        // Placeholder implementation
+        // システム設定のアクセシビリティを直接開く
+        let output = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+            .output()?;
+        if !output.status.success() {
+            let error_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow::anyhow!("Failed to open Accessibility settings: {}", error_msg));
+        }
         Ok(())
     }
 
@@ -55,11 +58,15 @@ impl PermissionChecker {
 
     /// 画面収録権限をリクエスト
     pub fn request_screen_recording_permission(&self) -> Result<()> {
-        // TODO: 画面収録権限のリクエストを実装
-        
         log::info!("Requesting screen recording permissions");
-        
-        // Placeholder implementation
+        // 画面収録の設定ペインを開く
+        let output = std::process::Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+            .output()?;
+        if !output.status.success() {
+            let error_msg = String::from_utf8_lossy(&output.stderr);
+            return Err(anyhow::anyhow!("Failed to open Screen Recording settings: {}", error_msg));
+        }
         Ok(())
     }
 
