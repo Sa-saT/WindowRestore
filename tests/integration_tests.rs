@@ -40,6 +40,10 @@ fn layout_roundtrip_flow_pure_io() {
 
     // 削除
     lm.delete_layout("it_test_layout").expect("delete layout");
+
+    // 削除後に一覧に含まれない
+    let list_after = lm.list_layouts().expect("list layouts after delete");
+    assert!(list_after.iter().all(|n| n != "it_test_layout"));
 }
 
 
