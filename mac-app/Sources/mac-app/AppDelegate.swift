@@ -92,14 +92,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("Rustライブラリを初期化中...")
         
         // Rustライブラリの初期化関数を呼び出し
-        let result = init_library()
+        let initResult = RustAPI.initLibrary()
         
-        if result == ERROR_SUCCESS {
+        switch initResult {
+        case .success:
             print("Rustライブラリの初期化が成功しました")
-        } else {
-            let msg = rustErrorMessage(code: result, fallback: "Rustライブラリの初期化に失敗しました")
-            print("Rustライブラリの初期化に失敗しました: \(result) - \(msg)")
-            showErrorNotification(title: "初期化エラー", message: msg)
+        case .failure(let code, let message):
+            print("Rustライブラリの初期化に失敗しました: \(code) - \(message)")
+            showErrorNotification(title: "初期化エラー", message: message)
         }
     }
     
@@ -109,7 +109,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         print("Rustライブラリをクリーンアップ中...")
         
         // Rustライブラリのクリーンアップ関数を呼び出し
-        cleanup_library()
+        RustAPI.cleanupLibrary()
         
         print("Rustライブラリのクリーンアップが完了しました")
     }
@@ -277,15 +277,15 @@ extension AppDelegate: MenuControllerDelegate {
         print("レイアウトを保存中: \(name)")
         
         // Rust関数を呼び出してレイアウトを保存
-        let result = name.withCString { save_current_layout($0) }
+        let result = RustAPI.saveLayout(name: name)
         
-        if result == ERROR_SUCCESS {
+        switch result {
+        case .success:
             print("レイアウトの保存が成功しました: \(name)")
             showSuccessNotification(title: "保存完了", message: "レイアウト「\(name)」が保存されました")
-        } else {
-            let msg = rustErrorMessage(code: result, fallback: "レイアウトの保存に失敗しました")
-            print("レイアウトの保存に失敗しました: \(result) - \(msg)")
-            showErrorNotification(title: "保存エラー", message: msg)
+        case .failure(let code, let message):
+            print("レイアウトの保存に失敗しました: \(code) - \(message)")
+            showErrorNotification(title: "保存エラー", message: message)
         }
     }
     
@@ -295,15 +295,15 @@ extension AppDelegate: MenuControllerDelegate {
         print("レイアウトを復元中: \(name)")
         
         // Rust関数を呼び出してレイアウトを復元
-        let result = name.withCString { restore_layout($0) }
+        let result = RustAPI.restoreLayout(name: name)
         
-        if result == ERROR_SUCCESS {
+        switch result {
+        case .success:
             print("レイアウトの復元が成功しました: \(name)")
             showSuccessNotification(title: "復元完了", message: "レイアウト「\(name)」が復元されました")
-        } else {
-            let msg = rustErrorMessage(code: result, fallback: "レイアウトの復元に失敗しました")
-            print("レイアウトの復元に失敗しました: \(result) - \(msg)")
-            showErrorNotification(title: "復元エラー", message: msg)
+        case .failure(let code, let message):
+            print("レイアウトの復元に失敗しました: \(code) - \(message)")
+            showErrorNotification(title: "復元エラー", message: message)
         }
     }
     
@@ -313,15 +313,15 @@ extension AppDelegate: MenuControllerDelegate {
         print("レイアウトを削除中: \(name)")
         
         // Rust関数を呼び出してレイアウトを削除
-        let result = name.withCString { delete_layout($0) }
+        let result = RustAPI.deleteLayout(name: name)
         
-        if result == ERROR_SUCCESS {
+        switch result {
+        case .success:
             print("レイアウトの削除が成功しました: \(name)")
             showSuccessNotification(title: "削除完了", message: "レイアウト「\(name)」が削除されました")
-        } else {
-            let msg = rustErrorMessage(code: result, fallback: "レイアウトの削除に失敗しました")
-            print("レイアウトの削除に失敗しました: \(result) - \(msg)")
-            showErrorNotification(title: "削除エラー", message: msg)
+        case .failure(let code, let message):
+            print("レイアウトの削除に失敗しました: \(code) - \(message)")
+            showErrorNotification(title: "削除エラー", message: message)
         }
     }
     

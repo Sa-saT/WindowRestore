@@ -166,32 +166,15 @@ class MenuController {
         print("レイアウト一覧を更新中...")
         
         // Rust関数を呼び出してレイアウト一覧を取得
-        let layoutListPtr = get_layout_list()
-        
-        if layoutListPtr == nil {
-            let msg = rustLastError()
-            print("レイアウト一覧の取得に失敗しました: \(msg)")
-            return
-        }
-        
-        // C文字列をSwift文字列に変換
-        let layoutListString = String(cString: layoutListPtr!)
-        
-        // メモリを解放
-        free_string(layoutListPtr!)
-        
-        // JSON文字列をパース
-        if let data = layoutListString.data(using: .utf8) {
-            do {
-                let layouts = try JSONSerialization.jsonObject(with: data, options: []) as? [String] ?? []
-                self.layoutList = layouts
-                updateLayoutMenu()
-                lastLayoutUpdate = now
-                print("レイアウト一覧を更新しました: \(layouts.count)個のレイアウト")
-            } catch {
-                let msg = rustErrorMessage(code: ERROR_JSON, fallback: "レイアウト一覧のパースに失敗しました")
-                print("レイアウト一覧のパースに失敗しました: \(error) - \(msg)")
-            }
+        let result = RustAPI.listLayouts()
+        switch result {
+        case .success(let layouts):
+            self.layoutList = layouts
+            updateLayoutMenu()
+            lastLayoutUpdate = now
+            print("レイアウト一覧を更新しました: \(layouts.count)個のレイアウト")
+        case .failure(_, let message):
+            print("レイアウト一覧の取得に失敗しました: \(message)")
         }
     }
     
