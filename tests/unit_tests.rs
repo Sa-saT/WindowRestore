@@ -37,6 +37,48 @@ mod tests {
         assert!(manager.is_ok());
     }
 
+    /// レイアウト名バリデーションのテスト
+    #[test]
+    fn test_layout_name_validation() {
+        let lm = layout_manager::LayoutManager::new().expect("layout manager");
+        let windows: Vec<WindowInfo> = vec![];
+
+        // 空文字はNG
+        let res = lm.save_layout(" ", &windows);
+        assert!(res.is_err());
+
+        // 禁止文字はNG
+        for bad in ["a/b", "a\\b", "a:b", "a*b", "a?b", "a\"b", "a<b", "a>b", "a|b"] {
+            let res = lm.save_layout(bad, &windows);
+            assert!(res.is_err(), "should fail for name: {}", bad);
+        }
+    }
+
+    /// 設定値バリデーションのテスト
+    #[test]
+    fn test_config_validation_bounds() {
+        let mut cfg = config::Config::default();
+        // 上限超過
+        cfg.restore_delay_ms = 120_000;
+        assert!(cfg.validate().is_err());
+        cfg.restore_delay_ms = 1_000; // 戻す
+
+        cfg.max_retry_attempts = 99;
+        assert!(cfg.validate().is_err());
+        cfg.max_retry_attempts = 3;
+
+        cfg.scan_interval_ms = 0;
+        assert!(cfg.validate().is_err());
+        cfg.scan_interval_ms = 5_000;
+
+        cfg.max_memory_usage_mb = 0;
+        assert!(cfg.validate().is_err());
+        cfg.max_memory_usage_mb = 50;
+
+        cfg.exclude_apps.push(" ".into());
+        assert!(cfg.validate().is_err());
+    }
+
     /// PermissionCheckerの作成をテスト
     /// 権限チェッカーが正常に初期化できることを確認
     #[test]
