@@ -69,9 +69,23 @@ swift build -c release
 # 単体テスト
 WINDOW_RESTORE_DATA_DIR=$(pwd)/target/window_restore cargo test
 
-# 統合テスト
-cargo test --test integration_tests
+# 統合テスト（純粋I/O）
+WINDOW_RESTORE_DATA_DIR=$(pwd)/target/it_window_restore cargo test --test integration_tests
 ```
+
+### .app の作成と起動（ログイン項目に追加したい場合）
+
+```bash
+# .appバンドルを作成（dist/Window Restore.app）
+bash scripts/make_app.sh
+
+# 起動
+open "dist/Window Restore.app"
+```
+
+- 初回起動で通知許可のダイアログが表示されます。許可してください。
+- アクセシビリティ権限が必要な場合、システム設定の案内に従って有効化してください。
+- ログイン項目への追加: システム設定 → 一般 → ログイン項目 → 「+」で `dist/Window Restore.app` を追加
 
 ## ライセンス
 
