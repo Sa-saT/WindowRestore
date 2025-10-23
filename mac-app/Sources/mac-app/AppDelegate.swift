@@ -420,16 +420,7 @@ struct AppSettings {
     let defaultMaxRetryAttempts: UInt32 = 3
 }
 
-// MARK: - Rustエラーメッセージ取得ヘルパー
-
-private func rustLastError() -> String {
-    if let ptr = get_last_error_message() {
-        let message = String(cString: ptr)
-        free_string(ptr)
-        return message
-    }
-    return ""
-}
+// rustLastError は FFIHelpers.swift を使用
 
 // MARK: - UserNotifications 簡易通知
 

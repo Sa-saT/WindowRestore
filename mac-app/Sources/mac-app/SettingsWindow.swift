@@ -21,8 +21,8 @@ class SettingsWindow: NSWindow {
     /// デリゲート
     weak var settingsDelegate: SettingsWindowDelegate?
     
-    /// ウィンドウコントローラー
-    private var windowController: NSWindowController?
+    /// 設定ウィンドウのコントローラー参照（名称衝突回避）
+    private var settingsWindowControllerRef: NSWindowController?
     
     // UI要素
     /// 自動復元チェックボックス

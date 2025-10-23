@@ -4,14 +4,27 @@ import window_restore
 // MARK: - Rust FFI エラーコード（型安全）
 
 enum RustErrorCode: Int32 {
-    case success = ERROR_SUCCESS
-    case permissionDenied = ERROR_PERMISSION_DENIED
-    case appNotFound = ERROR_APP_NOT_FOUND
-    case windowNotFound = ERROR_WINDOW_NOT_FOUND
-    case displayNotFound = ERROR_DISPLAY_NOT_FOUND
-    case fileIO = ERROR_FILE_IO
-    case json = ERROR_JSON
-    case unknown = ERROR_UNKNOWN
+    case success = 0
+    case permissionDenied = 1
+    case appNotFound = 2
+    case windowNotFound = 3
+    case displayNotFound = 4
+    case fileIO = 5
+    case json = 6
+    case unknown = 99
+
+    static func from(code: Int32) -> RustErrorCode {
+        switch code {
+        case ERROR_SUCCESS: return .success
+        case ERROR_PERMISSION_DENIED: return .permissionDenied
+        case ERROR_APP_NOT_FOUND: return .appNotFound
+        case ERROR_WINDOW_NOT_FOUND: return .windowNotFound
+        case ERROR_DISPLAY_NOT_FOUND: return .displayNotFound
+        case ERROR_FILE_IO: return .fileIO
+        case ERROR_JSON: return .json
+        default: return .unknown
+        }
+    }
 }
 
 // MARK: - Rust エラーメッセージ取得
@@ -28,7 +41,7 @@ func rustLastError() -> String {
 func rustErrorMessage(code: Int32, fallback: String) -> String {
     let detail = rustLastError()
     if !detail.isEmpty { return detail }
-    switch RustErrorCode(rawValue: code) ?? .unknown {
+    switch RustErrorCode.from(code: code) {
     case .permissionDenied:
         return "アクセシビリティ権限が必要です。システム設定で有効にしてください。"
     case .appNotFound:

@@ -10,13 +10,17 @@ let package = Package(
         .executable(name: "mac-app", targets: ["mac-app"]) 
     ],
     targets: [
+        // Clangモジュール: Rustで生成したヘッダー/モジュールマップをSwiftからimport可能にする
+        .target(
+            name: "window_restore",
+            path: "Bridging",
+            publicHeadersPath: "."
+        ),
         .executableTarget(
             name: "mac-app",
+            dependencies: ["window_restore"],
             path: "Sources/mac-app",
             resources: [],
-            cSettings: [
-                .headerSearchPath("../Bridging")
-            ],
             linkerSettings: [
                 .unsafeFlags(["-L", "../target/debug", "-L", "../target/release"], .when(platforms: [.macOS])),
                 .linkedLibrary("window_restore")

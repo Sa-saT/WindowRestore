@@ -77,7 +77,7 @@
 - [x] ユーザー案内機能（Swift側）
 
 ### 📱 3.3 通知機能（簡易版）
-- [ ] Swift UserNotificationsで成功/失敗のみ通知
+- [x] Swift UserNotificationsで成功/失敗のみ通知
 - [不要] 通知カスタマイズ
 - [不要] 通知履歴管理
 - [不要] 通知設定
