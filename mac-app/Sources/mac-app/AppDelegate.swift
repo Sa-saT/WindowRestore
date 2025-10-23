@@ -5,6 +5,7 @@
 import Cocoa
 import Foundation
 import window_restore
+import UserNotifications
 
 /// メインアプリケーションデリゲート
 /// アプリケーションのライフサイクルとメニューバー常駐機能を管理
@@ -45,6 +46,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         print("Window Restore アプリケーションが起動しました")
         
+        // 通知許可のリクエスト（初回のみ）
+        requestUserNotificationPermission()
+
         // Rustライブラリの初期化
         initializeRustLibrary()
         
@@ -245,23 +249,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// エラー通知の表示
     /// 引数: title - 通知タイトル、message - 通知メッセージ
     private func showErrorNotification(title: String, message: String) {
-        let notification = NSUserNotification()
-        notification.title = title
-        notification.informativeText = message
-        notification.soundName = NSUserNotificationDefaultSoundName
-        
-        NSUserNotificationCenter.default.deliver(notification)
+        postUserNotification(title: title, body: message)
     }
     
     /// 権限要求通知の表示
     /// アクセシビリティ権限が必要であることをユーザーに通知
     private func showPermissionRequiredNotification() {
-        let notification = NSUserNotification()
-        notification.title = "アクセシビリティ権限が必要です"
-        notification.informativeText = "Window Restoreを使用するには、システム環境設定でアクセシビリティ権限を有効にしてください。"
-        notification.soundName = NSUserNotificationDefaultSoundName
-        
-        NSUserNotificationCenter.default.deliver(notification)
+        postUserNotification(title: "アクセシビリティ権限が必要です", body: "システム設定で有効にしてください。")
     }
 }
 
@@ -348,22 +342,13 @@ extension AppDelegate: MenuControllerDelegate {
     /// 成功通知の表示
     /// 引数: title - 通知タイトル、message - 通知メッセージ
     private func showSuccessNotification(title: String, message: String) {
-        let notification = NSUserNotification()
-        notification.title = title
-        notification.informativeText = message
-        notification.soundName = NSUserNotificationDefaultSoundName
-        
-        NSUserNotificationCenter.default.deliver(notification)
+        postUserNotification(title: title, body: message)
     }
     
     /// 情報通知の表示
     /// 引数: title - 通知タイトル、message - 通知メッセージ
     private func showInfoNotification(title: String, message: String) {
-        let notification = NSUserNotification()
-        notification.title = title
-        notification.informativeText = message
-        
-        NSUserNotificationCenter.default.deliver(notification)
+        postUserNotification(title: title, body: message)
     }
 }
 
@@ -444,4 +429,28 @@ private func rustLastError() -> String {
         return message
     }
     return ""
+}
+
+// MARK: - UserNotifications 簡易通知
+
+private func requestUserNotificationPermission() {
+    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
+        if let error = error {
+            print("Notification permission error: \(error)")
+        } else {
+            print("Notification permission granted: \(granted)")
+        }
+    }
+}
+
+private func postUserNotification(title: String, body: String) {
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = body
+    let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+    UNUserNotificationCenter.current().add(request) { error in
+        if let error = error {
+            print("Failed to post notification: \(error)")
+        }
+    }
 }

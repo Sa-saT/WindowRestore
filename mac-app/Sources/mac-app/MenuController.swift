@@ -187,7 +187,6 @@ class MenuController {
         layoutMenu.removeAllItems()
         
         if layoutList.isEmpty {
-            // レイアウトがない場合
             let noLayoutItem = NSMenuItem(title: "レイアウトがありません", action: nil, keyEquivalent: "")
             noLayoutItem.isEnabled = false
             layoutMenu.addItem(noLayoutItem)
