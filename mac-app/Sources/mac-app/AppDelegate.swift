@@ -97,8 +97,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if result == ERROR_SUCCESS {
             print("Rustライブラリの初期化が成功しました")
         } else {
-            print("Rustライブラリの初期化に失敗しました: \(result)")
-            showErrorNotification(title: "初期化エラー", message: "Rustライブラリの初期化に失敗しました")
+            let msg = rustLastError()
+            print("Rustライブラリの初期化に失敗しました: \(result) - \(msg)")
+            showErrorNotification(title: "初期化エラー", message: msg.isEmpty ? "Rustライブラリの初期化に失敗しました" : msg)
         }
     }
     
@@ -282,8 +283,9 @@ extension AppDelegate: MenuControllerDelegate {
             print("レイアウトの保存が成功しました: \(name)")
             showSuccessNotification(title: "保存完了", message: "レイアウト「\(name)」が保存されました")
         } else {
-            print("レイアウトの保存に失敗しました: \(result)")
-            showErrorNotification(title: "保存エラー", message: "レイアウトの保存に失敗しました")
+            let msg = rustLastError()
+            print("レイアウトの保存に失敗しました: \(result) - \(msg)")
+            showErrorNotification(title: "保存エラー", message: msg.isEmpty ? "レイアウトの保存に失敗しました" : msg)
         }
     }
     
@@ -299,8 +301,9 @@ extension AppDelegate: MenuControllerDelegate {
             print("レイアウトの復元が成功しました: \(name)")
             showSuccessNotification(title: "復元完了", message: "レイアウト「\(name)」が復元されました")
         } else {
-            print("レイアウトの復元に失敗しました: \(result)")
-            showErrorNotification(title: "復元エラー", message: "レイアウトの復元に失敗しました")
+            let msg = rustLastError()
+            print("レイアウトの復元に失敗しました: \(result) - \(msg)")
+            showErrorNotification(title: "復元エラー", message: msg.isEmpty ? "レイアウトの復元に失敗しました" : msg)
         }
     }
     
@@ -316,8 +319,9 @@ extension AppDelegate: MenuControllerDelegate {
             print("レイアウトの削除が成功しました: \(name)")
             showSuccessNotification(title: "削除完了", message: "レイアウト「\(name)」が削除されました")
         } else {
-            print("レイアウトの削除に失敗しました: \(result)")
-            showErrorNotification(title: "削除エラー", message: "レイアウトの削除に失敗しました")
+            let msg = rustLastError()
+            print("レイアウトの削除に失敗しました: \(result) - \(msg)")
+            showErrorNotification(title: "削除エラー", message: msg.isEmpty ? "レイアウトの削除に失敗しました" : msg)
         }
     }
     
@@ -429,4 +433,15 @@ struct AppSettings {
     
     /// デフォルトの最大リトライ回数
     let defaultMaxRetryAttempts: UInt32 = 3
+}
+
+// MARK: - Rustエラーメッセージ取得ヘルパー
+
+private func rustLastError() -> String {
+    if let ptr = get_last_error_message() {
+        let message = String(cString: ptr)
+        free_string(ptr)
+        return message
+    }
+    return ""
 }

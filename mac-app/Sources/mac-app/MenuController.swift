@@ -169,7 +169,8 @@ class MenuController {
         let layoutListPtr = get_layout_list()
         
         if layoutListPtr == nil {
-            print("レイアウト一覧の取得に失敗しました")
+            let msg = rustLastError()
+            print("レイアウト一覧の取得に失敗しました: \(msg)")
             return
         }
         
@@ -188,7 +189,8 @@ class MenuController {
                 lastLayoutUpdate = now
                 print("レイアウト一覧を更新しました: \(layouts.count)個のレイアウト")
             } catch {
-                print("レイアウト一覧のパースに失敗しました: \(error)")
+                let msg = rustLastError()
+                print("レイアウト一覧のパースに失敗しました: \(error) - \(msg)")
             }
         }
     }
@@ -367,4 +369,15 @@ class MenuController {
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
+}
+
+// MARK: - Rustエラーメッセージ取得ヘルパー
+
+private func rustLastError() -> String {
+    if let ptr = get_last_error_message() {
+        let message = String(cString: ptr)
+        free_string(ptr)
+        return message
+    }
+    return ""
 }
