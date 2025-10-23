@@ -21,6 +21,12 @@ Window Restoreは、macOS上でユーザーのウィンドウ配置（位置・�
 - **フレームワーク**: AppKit
 - **ビルドシステム**: Cargo + Xcode
 
+## ステータス
+
+本プロジェクトは現在「開発中」です（個人用途）。配布・署名やインストーラー提供は現時点で行いません。
+
+Rustロジックは安定運用を目指して実装・テスト中、Swift側はメニューバーUI/FFI連携を中心に動作検証中です。
+
 ## インストール
 
 1. リリースページから最新版をダウンロード
@@ -37,13 +43,13 @@ Window Restoreは、macOS上でユーザーのウィンドウ配置（位置・�
 
 ## 開発
 
-### 必要な環境
+### 必要な環境（開発・動作確認）
 
 - Rust 1.70+
-- Xcode 15+
+- Xcode Command Line Tools（Xcode本体は不要。配布やコード署名を行う場合はXcode推奨）
 - macOS 15+
 
-### ビルド手順
+### ビルド手順（開発）
 
 ```bash
 # Rustライブラリのビルド
@@ -52,15 +58,16 @@ cargo build --release --target aarch64-apple-darwin
 # Cヘッダーの生成
 cbindgen --config cbindgen.toml --crate window_restore --output mac-app/Bridging/window_restore.h
 
-# macOSアプリのビルド
-xcodebuild -project mac-app/MacApp.xcodeproj -scheme MacApp -configuration Release
+# SwiftPMでのビルド（CLT環境）
+cd mac-app
+swift build -c release
 ```
 
 ### テスト
 
 ```bash
 # 単体テスト
-cargo test
+WINDOW_RESTORE_DATA_DIR=$(pwd)/target/window_restore cargo test
 
 # 統合テスト
 cargo test --test integration_tests
