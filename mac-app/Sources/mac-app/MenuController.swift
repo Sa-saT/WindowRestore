@@ -189,7 +189,7 @@ class MenuController {
                 lastLayoutUpdate = now
                 print("レイアウト一覧を更新しました: \(layouts.count)個のレイアウト")
             } catch {
-                let msg = rustLastError()
+                let msg = rustErrorMessage(code: ERROR_JSON, fallback: "レイアウト一覧のパースに失敗しました")
                 print("レイアウト一覧のパースに失敗しました: \(error) - \(msg)")
             }
         }
