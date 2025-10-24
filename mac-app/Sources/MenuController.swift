@@ -156,10 +156,10 @@ class MenuController {
     
     /// レイアウト一覧の更新
     /// 保存されたレイアウトの一覧を取得してメニューを更新
-    func updateLayoutList() {
-        // 更新間隔をチェック
+    func updateLayoutList(force: Bool = false) {
+        // 更新間隔をチェック（force=true でバイパス）
         let now = Date()
-        if now.timeIntervalSince(lastLayoutUpdate) < layoutUpdateInterval {
+        if !force && now.timeIntervalSince(lastLayoutUpdate) < layoutUpdateInterval {
             return
         }
         
@@ -241,9 +241,9 @@ class MenuController {
             
             if !layoutName.isEmpty {
                 delegate?.saveCurrentLayout(name: layoutName)
-                // レイアウト一覧を更新
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    self.updateLayoutList()
+                // レイアウト一覧を即時更新（待ち時間バイパス）
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                    self.updateLayoutList(force: true)
                 }
             } else {
                 showErrorAlert(title: "エラー", message: "レイアウト名を入力してください")
@@ -309,9 +309,9 @@ class MenuController {
         
         if response == .alertFirstButtonReturn {
             delegate?.deleteLayout(name: layoutName)
-            // レイアウト一覧を更新
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                self.updateLayoutList()
+            // レイアウト一覧を即時更新（待ち時間バイパス）
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self.updateLayoutList(force: true)
             }
         }
     }

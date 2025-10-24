@@ -19,7 +19,7 @@ let package = Package(
         .executableTarget(
             name: "mac-app",
             dependencies: ["window_restore"],
-            path: "Sources/mac-app",
+            path: "Sources",
             resources: [],
             linkerSettings: [
                 .unsafeFlags(["-L", "../target/debug", "-L", "../target/release"], .when(platforms: [.macOS])),
