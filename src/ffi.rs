@@ -7,6 +7,8 @@ use std::sync::{Mutex, OnceLock};
 use anyhow::Result;
 
 use crate::{WindowRestore, WindowRestoreError};
+use crate::layout_manager::LayoutManager;
+use crate::window_scanner::WindowScanner;
 
 // 直近のエラーメッセージをFFIで取り出せるように保持
 static LAST_ERROR_MESSAGE: OnceLock<Mutex<Option<String>>> = OnceLock::new();
@@ -70,13 +72,46 @@ pub extern "C" fn save_current_layout(name: *const c_char) -> i32 {
     };
     clear_last_error_message();
 
-    match WindowRestore::new() {
-        Ok(app) => {
-            let result = app.save_layout(name_str);
-            result_to_error_code(&result)
-        }
-        Err(_) => ERROR_UNKNOWN,
-    }
+    // WindowRestoreの初期化に依存しない保存経路
+    log::info!("FFI save_current_layout called");
+    let result: Result<()> = (|| {
+        let manager = LayoutManager::new()?;
+        let scanner = WindowScanner::new()?;
+        let windows = match scanner.scan_windows() {
+            Ok(ws) => ws,
+            Err(e) => {
+                log::warn!("Window scan failed, saving empty layout: {}", e);
+                Vec::new()
+            }
+        };
+        // 無効なウィンドウ（タイトル等が空）を除外して保存
+        let filtered: Vec<_> = windows
+            .into_iter()
+            .filter(|w| {
+                let title_ok = !w.title.trim().is_empty();
+                let app_ok = !w.app_name.trim().is_empty();
+                let uuid_ok = !w.display_uuid.trim().is_empty();
+                let frame_ok = w.frame.width.is_finite()
+                    && w.frame.height.is_finite()
+                    && w.frame.width >= 0.0
+                    && w.frame.height >= 0.0
+                    && w.frame.x.is_finite()
+                    && w.frame.y.is_finite();
+                if !(title_ok && app_ok && uuid_ok && frame_ok) {
+                    log::debug!(
+                        "Dropping invalid window: app='{}' title='{}' uuid='{}'",
+                        w.app_name, w.title, w.display_uuid
+                    );
+                }
+                title_ok && app_ok && uuid_ok && frame_ok
+            })
+            .collect();
+
+        let r = manager.save_layout(name_str, &filtered);
+        if r.is_ok() { log::info!("FFI save_current_layout succeeded: {}", name_str); }
+        r
+    })();
+    result_to_error_code(&result)
 }
 
 /// ウィンドウレイアウトを復元
@@ -109,18 +144,13 @@ pub extern "C" fn restore_layout(name: *const c_char) -> i32 {
 #[no_mangle]
 pub extern "C" fn get_layout_list() -> *mut c_char {
     clear_last_error_message();
-    match WindowRestore::new() {
-        Ok(app) => {
-            match app.get_layout_list() {
-                Ok(layouts) => {
-                    let json = serde_json::to_string(&layouts).unwrap_or_else(|_| "[]".to_string());
-                    CString::new(json).unwrap().into_raw()
-                }
-                Err(e) => { set_last_error_message(format!("{}", e)); CString::new("[]").unwrap().into_raw() },
-            }
-        }
-        Err(e) => { set_last_error_message(format!("{}", e)); CString::new("[]").unwrap().into_raw() },
-    }
+    let json = (|| -> Result<String> {
+        let manager = LayoutManager::new()?;
+        let layouts = manager.list_layouts()?;
+        log::info!("FFI get_layout_list count={}", layouts.len());
+        Ok(serde_json::to_string(&layouts).unwrap_or_else(|_| "[]".to_string()))
+    })().unwrap_or_else(|e| { set_last_error_message(format!("{}", e)); "[]".to_string() });
+    CString::new(json).unwrap().into_raw()
 }
 
 /// レイアウトを削除
@@ -138,13 +168,13 @@ pub extern "C" fn delete_layout(name: *const c_char) -> i32 {
     };
     clear_last_error_message();
 
-    match WindowRestore::new() {
-        Ok(app) => {
-            let result = app.delete_layout(name_str);
-            result_to_error_code(&result)
-        }
-        Err(_) => ERROR_UNKNOWN,
-    }
+    let result: Result<()> = (|| {
+        let manager = LayoutManager::new()?;
+        let r = manager.delete_layout(name_str);
+        if r.is_ok() { log::info!("FFI delete_layout succeeded: {}", name_str); }
+        r
+    })();
+    result_to_error_code(&result)
 }
 
 /// アクセシビリティ権限をチェック

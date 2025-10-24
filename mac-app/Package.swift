@@ -22,7 +22,8 @@ let package = Package(
             path: "Sources",
             resources: [],
             linkerSettings: [
-                .unsafeFlags(["-L", "../target/debug", "-L", "../target/release"], .when(platforms: [.macOS])),
+                // 実行時は.app内Frameworksの@rpathから解決する。ビルド時はrelease優先。
+                .unsafeFlags(["-L", "../target/release"], .when(platforms: [.macOS])),
                 .linkedLibrary("window_restore")
             ]
         )

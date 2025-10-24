@@ -51,6 +51,13 @@ echo "[4/5] Fixing rpath"
 install_name_tool -id "@rpath/libwindow_restore.dylib" "$APP_DIR/Contents/Frameworks/libwindow_restore.dylib"
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_DIR/Contents/MacOS/$APP_NAME"
 
+# Replace absolute load path of libwindow_restore.dylib with @rpath if needed
+OLD_PATH=$(otool -L "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '/libwindow_restore\\.dylib/ {print $1; exit}')
+if [[ -n "${OLD_PATH:-}" && "$OLD_PATH" != "@rpath/libwindow_restore.dylib" ]]; then
+  echo "Fixing LC_LOAD_DYLIB from $OLD_PATH to @rpath/libwindow_restore.dylib"
+  install_name_tool -change "$OLD_PATH" "@rpath/libwindow_restore.dylib" "$APP_DIR/Contents/MacOS/$APP_NAME"
+fi
+
 echo "[5/5] Done: $APP_DIR"
 open "$ROOT_DIR/dist"
 

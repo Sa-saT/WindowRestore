@@ -62,7 +62,13 @@ impl WindowRestore {
 
     /// Save current window layout with given name
     pub fn save_layout(&self, name: &str) -> Result<()> {
-        let windows = self.window_scanner.scan_windows()?;
+        let windows = match self.window_scanner.scan_windows() {
+            Ok(ws) => ws,
+            Err(e) => {
+                log::warn!("Window scan failed, saving empty layout: {}", e);
+                Vec::new()
+            }
+        };
         self.layout_manager.save_layout(name, &windows)?;
         Ok(())
     }
