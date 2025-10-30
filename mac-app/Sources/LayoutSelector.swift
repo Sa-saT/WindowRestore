@@ -4,7 +4,6 @@
 
 import Cocoa
 import Foundation
-import window_restore
 
 /// レイアウトセレクターのデリゲートプロトコル
 /// レイアウト選択のイベントを処理
@@ -75,39 +74,22 @@ class LayoutSelector {
         }
         
         print("レイアウト一覧を更新中...")
-        
-        // Rust関数を呼び出してレイアウト一覧を取得
-        let layoutListPtr = get_layout_list()
-        
-        if layoutListPtr == nil {
-            print("レイアウト一覧の取得に失敗しました")
-            return
-        }
-        
-        // C文字列をSwift文字列に変換
-        let layoutListString = String(cString: layoutListPtr!)
-        
-        // メモリを解放
-        free_string(layoutListPtr!)
-        
-        // JSON文字列をパース
-        if let data = layoutListString.data(using: .utf8) {
-            do {
-                let layouts = try JSONSerialization.jsonObject(with: data, options: []) as? [String] ?? []
-                self.layoutList = layouts.map { name in
-                    LayoutInfo(
-                        name: name,
-                        createdAt: Date(), // TODO: 実際の作成日時を取得
-                        updatedAt: Date(), // TODO: 実際の更新日時を取得
-                        windowCount: 0,    // TODO: 実際のウィンドウ数を取得
-                        description: "レイアウト「\(name)」"
-                    )
-                }
-                lastUpdateTime = now
-                print("レイアウト一覧を更新しました: \(layouts.count)個のレイアウト")
-            } catch {
-                print("レイアウト一覧のパースに失敗しました: \(error)")
+
+        switch RustAPI.listLayouts() {
+        case .success(let layouts):
+            self.layoutList = layouts.map { name in
+                LayoutInfo(
+                    name: name,
+                    createdAt: Date(),
+                    updatedAt: Date(),
+                    windowCount: 0,
+                    description: "レイアウト「\(name)」"
+                )
             }
+            lastUpdateTime = now
+            print("レイアウト一覧を更新しました: \(layouts.count)個のレイアウト")
+        case .failure(_, let message):
+            print("レイアウト一覧の取得に失敗しました: \(message)")
         }
     }
     

@@ -4,7 +4,7 @@
 
 import Cocoa
 import Foundation
-import window_restore
+import ApplicationServices
 
 /// 権限マネージャーのデリゲートプロトコル
 /// 権限状態の変更を処理
@@ -57,14 +57,8 @@ class PermissionManager {
     /// 戻り値: 権限がある場合true
     func checkAccessibilityPermission() -> Bool {
         print("アクセシビリティ権限をチェック中...")
-        
-        // Rust関数を呼び出して権限をチェック
-        let result = check_permissions()
-        
-        let hasPermission = (result == ERROR_SUCCESS)
-        
+        let hasPermission = AXIsProcessTrusted()
         print("アクセシビリティ権限チェック結果: \(hasPermission)")
-        
         return hasPermission
     }
     

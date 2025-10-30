@@ -16,27 +16,22 @@ Window Restoreは、macOS上でユーザーのウィンドウ配置（位置・�
 
 ## 技術仕様
 
-- **対象OS**: macOS 15 (Sequoia) 以降
-- **開発言語**: Rust (ロジック) + Swift (UI)
-- **フレームワーク**: AppKit
-- **ビルドシステム**: Cargo + Xcode
+- **対象OS**: macOS 13+（SwiftPM設定に準拠）
+- **開発言語**: Swift
+- **フレームワーク**: AppKit（Accessibility / CoreGraphics を利用）
+- **ビルドシステム**: Swift Package Manager（Xcode不要／CLTで可）
 
 ## ステータス
 
 本プロジェクトは現在「開発中」です（個人用途）。配布・署名やインストーラー提供は現時点で行いません。
 
-Rustロジックは安定運用を目指して実装・テスト中、Swift側はメニューバーUI/FFI連携を中心に動作検証中です。
-
 ## インストール
 
-1. リリースページから最新版をダウンロード
-2. `.app`ファイルを`/Applications/`にコピー
-3. アプリケーションを起動
-4. アクセシビリティ権限を許可
+配布は行っていません。以下の「ビルド手順」で自前ビルドしてください。
 
 ## 使用方法
 
-1. メニューバーのWindow Restoreアイコンをクリック
+1. メニューバーのWindowRestoreアイコンをクリック
 2. 「現在のレイアウトを保存」でレイアウトを保存
 3. 「レイアウトを復元」で保存されたレイアウトを復元
 4. 「レイアウト一覧」で保存されたレイアウトを管理
@@ -45,47 +40,50 @@ Rustロジックは安定運用を目指して実装・テスト中、Swift側�
 
 ### 必要な環境（開発・動作確認）
 
-- Rust 1.70+
 - Xcode Command Line Tools（Xcode本体は不要。配布やコード署名を行う場合はXcode推奨）
-- macOS 15+
+- macOS 13+
 
 ### ビルド手順（開発）
 
 ```bash
-# Rustライブラリのビルド
-cargo build --release --target aarch64-apple-darwin
-
-# Cヘッダーの生成
-cbindgen --config cbindgen.toml --crate window_restore --output mac-app/Bridging/window_restore.h
-
 # SwiftPMでのビルド（CLT環境）
 cd mac-app
 swift build -c release
 ```
 
-### テスト
-
-```bash
-# 単体テスト
-WINDOW_RESTORE_DATA_DIR=$(pwd)/target/window_restore cargo test
-
-# 統合テスト（純粋I/O）
-WINDOW_RESTORE_DATA_DIR=$(pwd)/target/it_window_restore cargo test --test integration_tests
-```
-
 ### .app の作成と起動（ログイン項目に追加したい場合）
 
 ```bash
-# .appバンドルを作成（dist/Window Restore.app）
+# .appバンドルを作成（dist/WindowRestore.app）
 bash scripts/make_app.sh
 
 # 起動
-open "dist/Window Restore.app"
+open "dist/WindowRestore.app"
 ```
 
 - 初回起動で通知許可のダイアログが表示されます。許可してください。
 - アクセシビリティ権限が必要な場合、システム設定の案内に従って有効化してください。
-- ログイン項目への追加: システム設定 → 一般 → ログイン項目 → 「+」で `dist/Window Restore.app` を追加
+- ログイン項目への追加: システム設定 → 一般 → ログイン項目 → 「+」で `dist/WindowRestore.app` を追加
+
+### アプリアイコンの設定（Finder等の.appアイコン）
+
+1. アイコン画像を配置（固定パス）
+   - `mac-app/Sources/Resources/window_dog_icon.png`
+2. .app生成スクリプトを実行
+   - `bash scripts/make_app.sh`
+   - スクリプトが `AppIcon.icns` をアプリ内 `Contents/Resources/` に生成・組み込みます（中間ファイルは残しません）
+3. 反映確認
+   - Finderで `dist/WindowRestore.app` を確認。反映されない場合はFinderを再起動、または.app名を変更→戻すと更新されます
+
+補足: Dock非表示（`LSUIElement=true`）アプリのため、Dockアイコンは表示されません。
+
+### メニューバーのステータスアイコン
+
+- アプリ起動時に「四角枠＋Dog」テキストのアイコンを描画して固定表示します（テーマに合わせて自動反転されるテンプレート画像）。
+
+## 仕様詳細
+
+Swift単独版の詳細仕様は `docs/SWIFT_ONLY_SPEC.md` を参照してください。
 
 ## ライセンス
 

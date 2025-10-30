@@ -2,23 +2,20 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-APP_NAME="Window Restore"
+APP_NAME="WindowRestore"
 APP_DIR="$ROOT_DIR/dist/$APP_NAME.app"
+ICON_SRC="$ROOT_DIR/mac-app/Sources/Resources/window_dog_icon.png"
 
-echo "[1/5] Building Rust (release)"
-cargo build --release -q
-
-echo "[2/5] Building SwiftPM (release)"
+echo "[1/3] Building SwiftPM (release)"
 pushd "$ROOT_DIR/mac-app" >/dev/null
 swift build -c release
 popd >/dev/null
 
-echo "[3/5] Creating .app bundle"
+echo "[2/3] Creating .app bundle"
 rm -rf "$APP_DIR"
-mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Frameworks" "$APP_DIR/Contents/Resources"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 
 cp "$ROOT_DIR/mac-app/.build/release/mac-app" "$APP_DIR/Contents/MacOS/$APP_NAME"
-cp "$ROOT_DIR/target/release/libwindow_restore.dylib" "$APP_DIR/Contents/Frameworks/"
 
 cat >"$APP_DIR/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -26,9 +23,9 @@ cat >"$APP_DIR/Contents/Info.plist" <<'PLIST'
 <plist version="1.0">
 <dict>
   <key>CFBundleName</key>
-  <string>Window Restore</string>
+  <string>WindowRestore</string>
   <key>CFBundleDisplayName</key>
-  <string>Window Restore</string>
+  <string>WindowRestore</string>
   <key>CFBundleIdentifier</key>
   <string>local.window-restore</string>
   <key>CFBundleVersion</key>
@@ -38,7 +35,9 @@ cat >"$APP_DIR/Contents/Info.plist" <<'PLIST'
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleExecutable</key>
-  <string>Window Restore</string>
+  <string>WindowRestore</string>
+  <key>CFBundleIconFile</key>
+  <string>AppIcon</string>
   <key>LSUIElement</key>
   <true/>
   <key>NSPrincipalClass</key>
@@ -47,17 +46,33 @@ cat >"$APP_DIR/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-echo "[4/5] Fixing rpath"
-install_name_tool -id "@rpath/libwindow_restore.dylib" "$APP_DIR/Contents/Frameworks/libwindow_restore.dylib"
-install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_DIR/Contents/MacOS/$APP_NAME"
+echo "[3/3] Generating app icon (.icns)"
 
-# Replace absolute load path of libwindow_restore.dylib with @rpath if needed
-OLD_PATH=$(otool -L "$APP_DIR/Contents/MacOS/$APP_NAME" | awk '/libwindow_restore\\.dylib/ {print $1; exit}')
-if [[ -n "${OLD_PATH:-}" && "$OLD_PATH" != "@rpath/libwindow_restore.dylib" ]]; then
-  echo "Fixing LC_LOAD_DYLIB from $OLD_PATH to @rpath/libwindow_restore.dylib"
-  install_name_tool -change "$OLD_PATH" "@rpath/libwindow_restore.dylib" "$APP_DIR/Contents/MacOS/$APP_NAME"
+# 固定パス: mac-app/Sources/Resources/window_dog_icon.png から .icns を生成
+if [[ -f "$ICON_SRC" ]]; then
+  ICONSET_DIR="$APP_DIR/Contents/Resources/AppIcon.iconset"
+  ICNS_PATH="$APP_DIR/Contents/Resources/AppIcon.icns"
+  rm -rf "$ICONSET_DIR" "$ICNS_PATH"
+  mkdir -p "$ICONSET_DIR"
+  # 必須サイズを生成
+  sips -z 16 16  "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null
+  sips -z 32 32  "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16@2x.png" >/dev/null
+  sips -z 32 32  "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32.png" >/dev/null
+  sips -z 64 64  "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32@2x.png" >/dev/null
+  sips -z 128 128 "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128.png" >/dev/null
+  sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null
+  sips -z 256 256 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256.png" >/dev/null
+  sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null
+  sips -z 512 512 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null
+  # 1024x1024 は @2x 相当
+  sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null
+  iconutil -c icns "$ICONSET_DIR" -o "$ICNS_PATH"
+  # 中間生成物を削除（.iconset は不要）
+  rm -rf "$ICONSET_DIR"
+else
+  echo "[warn] mac-app/Sources/Resources/window_dog_icon.png が見つかりませんでした。アプリアイコンは未設定です" >&2
 fi
 
-echo "[5/5] Done: $APP_DIR"
+echo "[3/3] Done: $APP_DIR"
 open "$ROOT_DIR/dist"
 

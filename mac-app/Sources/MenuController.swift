@@ -4,7 +4,6 @@
 
 import Cocoa
 import Foundation
-import window_restore
 
 /// メニューコントローラーのデリゲートプロトコル
 /// メニュー操作のイベントを処理
@@ -151,6 +150,8 @@ class MenuController {
         
         mainMenu?.addItem(quitItem)
     }
+
+    
     
     // MARK: - レイアウト一覧管理
     
@@ -327,6 +328,8 @@ class MenuController {
         print("アプリケーションを終了中...")
         delegate?.quitApplication()
     }
+
+    
     
     // MARK: - ヘルパーメソッド
     

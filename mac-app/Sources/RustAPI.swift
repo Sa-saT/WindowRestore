@@ -1,5 +1,4 @@
 import Foundation
-import window_restore
 
 // MARK: - 型安全なRust APIラッパー
 
@@ -9,50 +8,60 @@ enum RustResult<T> {
 }
 
 struct RustAPI {
+    private static let CODE_SUCCESS: Int32 = 0
+    private static let CODE_PERMISSION: Int32 = 1
+    private static let CODE_FILEIO: Int32 = 5
+    private static let CODE_JSON: Int32 = 6
+    private static let CODE_UNKNOWN: Int32 = 99
+
     static func initLibrary() -> RustResult<Void> {
-        let code = init_library()
-        if code == ERROR_SUCCESS { return .success(()) }
-        return .failure(code: code, message: rustErrorMessage(code: code, fallback: "Rustライブラリの初期化に失敗しました"))
+        // Swift単独化のため初期化は不要
+        return .success(())
     }
 
     static func cleanupLibrary() {
-        _ = cleanup_library()
+        // Swift単独化のためクリーンアップは不要
     }
 
     static func saveLayout(name: String) -> RustResult<Void> {
-        let code = name.withCString { save_current_layout($0) }
-        if code == ERROR_SUCCESS { return .success(()) }
-        return .failure(code: code, message: rustErrorMessage(code: code, fallback: "レイアウトの保存に失敗しました"))
+        do {
+            try WindowManager.shared.saveWindows(name: name)
+            return .success(())
+        } catch {
+            return .failure(code: CODE_FILEIO, message: errorMessage(fallback: "レイアウトの保存に失敗しました: \(error.localizedDescription)"))
+        }
     }
 
     static func restoreLayout(name: String) -> RustResult<Void> {
-        let code = name.withCString { restore_layout($0) }
-        if code == ERROR_SUCCESS { return .success(()) }
-        return .failure(code: code, message: rustErrorMessage(code: code, fallback: "レイアウトの復元に失敗しました"))
+        do {
+            try WindowManager.shared.restoreWindows(name: name)
+            return .success(())
+        } catch {
+            // 権限不足の場合とそれ以外を大まかに分類
+            let code: Int32 = WindowManager.shared.hasAccessibilityPermission() ? CODE_UNKNOWN : CODE_PERMISSION
+            return .failure(code: code, message: errorMessage(fallback: "レイアウトの復元に失敗しました: \(error.localizedDescription)"))
+        }
     }
 
     static func deleteLayout(name: String) -> RustResult<Void> {
-        let code = name.withCString { delete_layout($0) }
-        if code == ERROR_SUCCESS { return .success(()) }
-        return .failure(code: code, message: rustErrorMessage(code: code, fallback: "レイアウトの削除に失敗しました"))
+        do {
+            try WindowManager.shared.deleteLayout(name: name)
+            return .success(())
+        } catch {
+            return .failure(code: CODE_FILEIO, message: errorMessage(fallback: "レイアウトの削除に失敗しました: \(error.localizedDescription)"))
+        }
     }
 
     static func listLayouts() -> RustResult<[String]> {
-        guard let ptr = get_layout_list() else {
-            return .failure(code: ERROR_UNKNOWN, message: rustErrorMessage(code: ERROR_UNKNOWN, fallback: "レイアウト一覧の取得に失敗しました"))
-        }
-        let json = String(cString: ptr)
-        free_string(ptr)
-        if let data = json.data(using: .utf8),
-           let array = (try? JSONSerialization.jsonObject(with: data)) as? [String] {
-            return .success(array)
-        }
-        return .failure(code: ERROR_JSON, message: rustErrorMessage(code: ERROR_JSON, fallback: "レイアウト一覧のパースに失敗しました"))
+        let layouts = WindowManager.shared.listLayouts()
+        return .success(layouts)
     }
 
     static func hasAccessibilityPermission() -> Bool {
-        return check_permissions() == ERROR_SUCCESS
+        return WindowManager.shared.hasAccessibilityPermission()
     }
+
+    private static func errorMessage(fallback: String) -> String { fallback }
 }
 
 
