@@ -26,6 +26,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     /// 設定ウィンドウ
     private var settingsWindow: SettingsWindow?
+
+    /// セカンダリディスプレイ用ステータスアイコン
+    private var secondaryStatusIcons: SecondaryStatusIcons?
     
     
     /// アプリケーションの設定
@@ -234,6 +237,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         menuController = MenuController(statusBarItem: statusBarItem)
         menuController?.delegate = self
+
+        // セカンダリディスプレイにもアイコン相当を表示
+        if let statusBarItem = statusBarItem {
+            secondaryStatusIcons = SecondaryStatusIcons(iconProvider: { [weak statusBarItem] in
+                return statusBarItem?.button?.image
+            }, menuProvider: { [weak self] in
+                return self?.menuController?.getMainMenu()
+            })
+        }
         
         print("メニューコントローラーの設定が完了しました")
     }
