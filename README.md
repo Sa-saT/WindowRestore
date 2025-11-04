@@ -1,5 +1,8 @@
 # Window Restore
 
+<p align="center">
+  <img src="https://github.com/Sa-saT/WindowRestore/blob/main/mac-app/Sources/Resources/window_dog_icon.png?raw=true" width="300"/>
+</p>
 macOS向けウィンドウ位置・サイズ・ディスプレイ復元アプリケーション
 
 ## 概要

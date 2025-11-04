@@ -335,7 +335,7 @@ extension AppDelegate: MenuControllerDelegate {
                     if d == .alertFirstButtonReturn {
                         // 置き換え
                         let captured = WindowManager.shared.fetchVisibleAppWindows().map { w in
-                            WindowInfo(ownerName: w.ownerName, pid: w.pid, windowName: w.windowName, bounds: w.bounds, displayUUID: w.displayUUID, spaceNumber: w.spaceNumber, layoutLabel: baseLabel)
+                            WindowInfo(ownerName: w.ownerName, bundleIdentifier: w.bundleIdentifier, windowName: w.windowName, bounds: w.bounds, displayUUID: w.displayUUID, spaceNumber: w.spaceNumber, layoutLabel: baseLabel)
                         }
                         do {
                             try WindowManager.shared.replaceWindowsForLabel(name: name, label: baseLabel, with: captured)

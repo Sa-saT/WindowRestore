@@ -6,7 +6,7 @@ import ApplicationServices
 /// ウィンドウ情報（JSON保存/読み込み対象）
 struct WindowInfo: Codable {
     let ownerName: String
-    let pid: Int
+    let bundleIdentifier: String? // アプリの永続識別子（PIDの代替）
     let windowName: String?
     let bounds: CGRect
     let displayUUID: String?
@@ -49,9 +49,11 @@ final class WindowManager {
         let filtered = filterWindows(from: stabilized)
         return filtered.map { raw in
             let displayUUID = resolveDisplayUUID(for: raw.bounds.origin)
+            let running = NSRunningApplication(processIdentifier: pid_t(raw.pid))
+            let bundleId = running?.bundleIdentifier
             return WindowInfo(
                 ownerName: raw.ownerName,
-                pid: raw.pid,
+                bundleIdentifier: bundleId,
                 windowName: raw.windowName,
                 bounds: raw.bounds,
                 displayUUID: displayUUID,
@@ -200,7 +202,7 @@ final class WindowManager {
         try FileHelper.ensureDirectories()
         let captured = fetchVisibleAppWindows().map { w in
             WindowInfo(ownerName: w.ownerName,
-                       pid: w.pid,
+                       bundleIdentifier: w.bundleIdentifier,
                        windowName: w.windowName,
                        bounds: w.bounds,
                        displayUUID: w.displayUUID,
@@ -275,7 +277,7 @@ final class WindowManager {
         let filtered = existing.filter { $0.layoutLabel != label }
         let replaced = filtered + newWindows.map { w in
             WindowInfo(ownerName: w.ownerName,
-                       pid: w.pid,
+                       bundleIdentifier: w.bundleIdentifier,
                        windowName: w.windowName,
                        bounds: w.bounds,
                        displayUUID: w.displayUUID,
@@ -287,27 +289,73 @@ final class WindowManager {
     }
 
     private func restoreSingleWindow(_ info: WindowInfo) {
-        let appRef = AXUIElementCreateApplication(pid_t(info.pid))
-
-        var windowsValue: CFTypeRef?
-        let err = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsValue)
-        guard err == .success, let axWindows = windowsValue as? [AXUIElement], let first = axWindows.first else {
-            print("[restore] ウィンドウ要素取得失敗 pid=\(info.pid) owner=\(info.ownerName)")
+        // 1) bundleIdentifier があればそれを優先して現在のPID群を取得。なければ従来のPIDを使用
+        var targetPids: [pid_t] = []
+        if let bid = info.bundleIdentifier, !bid.isEmpty {
+            var apps = NSRunningApplication.runningApplications(withBundleIdentifier: bid)
+            if apps.isEmpty {
+                // 未起動なら起動を試みる
+                _ = NSWorkspace.shared.launchApplication(withBundleIdentifier: bid,
+                                                         options: [.withoutActivation],
+                                                         additionalEventParamDescriptor: nil,
+                                                         launchIdentifier: nil)
+                // 起動出現待ち（最大約10秒）
+                var tries = 0
+                while apps.isEmpty && tries < 50 {
+                    usleep(200_000)
+                    apps = NSRunningApplication.runningApplications(withBundleIdentifier: bid)
+                    tries += 1
+                }
+            }
+            targetPids = apps.map { pid_t($0.processIdentifier) }
+        }
+        if targetPids.isEmpty {
+            print("[restore] 対象アプリ未起動/特定不可 owner=\(info.ownerName) bundleId=\(info.bundleIdentifier ?? "-")")
             return
         }
 
-        // 位置とサイズ設定
-        var pos = CGPoint(x: info.bounds.origin.x, y: info.bounds.origin.y)
-        var size = CGSize(width: info.bounds.size.width, height: info.bounds.size.height)
+        // 2) 各PIDについてAXウィンドウを探索し、タイトル一致を優先
+        for pid in targetPids {
+            let appRef = AXUIElementCreateApplication(pid)
 
-        if let posValue = AXValueCreate(.cgPoint, &pos) {
-            let setPosErr = AXUIElementSetAttributeValue(first, kAXPositionAttribute as CFString, posValue)
-            if setPosErr != .success { print("[restore] 位置設定失敗: \(setPosErr)") }
+            var windowsValue: CFTypeRef?
+            let err = AXUIElementCopyAttributeValue(appRef, kAXWindowsAttribute as CFString, &windowsValue)
+            guard err == .success, let axWindows = windowsValue as? [AXUIElement], !axWindows.isEmpty else {
+                continue
+            }
+
+            // タイトル一致があればそれを採用、なければ先頭
+            let targetWindow: AXUIElement = {
+                if let expected = info.windowName, !expected.isEmpty {
+                    for w in axWindows {
+                        var t: CFTypeRef?
+                        if AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &t) == .success,
+                           let title = t as? String, title == expected {
+                            return w
+                        }
+                    }
+                }
+                return axWindows.first!
+            }()
+
+            // 位置とサイズ設定
+            var pos = CGPoint(x: info.bounds.origin.x, y: info.bounds.origin.y)
+            var size = CGSize(width: info.bounds.size.width, height: info.bounds.size.height)
+
+            if let posValue = AXValueCreate(.cgPoint, &pos) {
+                let setPosErr = AXUIElementSetAttributeValue(targetWindow, kAXPositionAttribute as CFString, posValue)
+                if setPosErr != .success { print("[restore] 位置設定失敗: \(setPosErr)") }
+            }
+            if let sizeValue = AXValueCreate(.cgSize, &size) {
+                let setSizeErr = AXUIElementSetAttributeValue(targetWindow, kAXSizeAttribute as CFString, sizeValue)
+                if setSizeErr != .success { print("[restore] サイズ設定失敗: \(setSizeErr)") }
+            }
+
+            // 1つでも適用できたら終了
+            return
         }
-        if let sizeValue = AXValueCreate(.cgSize, &size) {
-            let setSizeErr = AXUIElementSetAttributeValue(first, kAXSizeAttribute as CFString, sizeValue)
-            if setSizeErr != .success { print("[restore] サイズ設定失敗: \(setSizeErr)") }
-        }
+
+        print("[restore] 対象ウィンドウ未検出 owner=\(info.ownerName) bundleId=\(info.bundleIdentifier ?? "-")")
     }
 }
 
