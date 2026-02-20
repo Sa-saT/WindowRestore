@@ -1,99 +1,81 @@
 # Window Restore
 
 <p align="center">
-  <img src="https://github.com/Sa-saT/WindowRestore/blob/main/mac-app/Sources/Resources/window_dog_icon.png?raw=true" width="300"/>
+  <img src="docs/images/window_dog_gh.png" width="300"/>
 </p>
-macOS向けウィンドウ位置・サイズ・ディスプレイ復元アプリケーション
+
+macOS 向けウィンドウ位置・サイズ・ディスプレイ復元アプリケーション
 
 ## 概要
 
-Window Restoreは、macOS上でユーザーのウィンドウ配置（位置・サイズ・所属ディスプレイ）を記録・復元し、必要に応じて該当アプリを起動してレイアウトを再現するアプリケーションです。
+Window Restore は、macOS 上でユーザーのウィンドウ配置（位置・サイズ・所属ディスプレイ）を記録・復元し、必要に応じて該当アプリを起動してレイアウトを再現するアプリケーションです。
 
 ## 特徴
 
-- 🪟 **ウィンドウ状態の保存・復元**: 現在開いているウィンドウの位置・サイズ・ディスプレイ情報を記録
-- 📱 **メニューバー常駐**: メニューバーに常駐し、簡単な操作でレイアウトを管理
-- 🎯 **複数レイアウト対応**: 名前付きレイアウトを複数保存・切り替え可能
-- ⚙️ **柔軟な設定**: 自動復元・ディスプレイ変化検知などの設定オプション
-- 🔐 **セキュア**: アクセシビリティ権限を適切に管理
+- **ウィンドウ状態の保存・復元** — 現在開いているウィンドウの位置・サイズ・ディスプレイ情報を記録
+- **メニューバー常駐** — メニューバーに常駐し、簡単な操作でレイアウトを管理
+- **マルチ Space 対応** — 複数の Space を順に保存・復元
+- **複数レイアウト対応** — 名前付きレイアウトを複数保存・切り替え可能
+- **マルチディスプレイ対応** — セカンダリディスプレイにもステータスアイコンを表示
 
 ## 技術仕様
 
-- **対象OS**: macOS 13+（SwiftPM設定に準拠）
-- **開発言語**: Swift
-- **フレームワーク**: AppKit（Accessibility / CoreGraphics を利用）
-- **ビルドシステム**: Swift Package Manager（Xcode不要／CLTで可）
+| 項目 | 内容 |
+|------|------|
+| 対象 OS | macOS 13+ |
+| 開発言語 | Swift |
+| フレームワーク | AppKit / CoreGraphics / Accessibility API |
+| ビルドシステム | Xcode |
 
-## ステータス
+## ダウンロード
 
-本プロジェクトは現在「開発中」です（個人用途）。配布・署名やインストーラー提供は現時点で行いません。
+[**Download (DMG)**](https://github.com/<user>/WindowRestore/releases/latest/download/WindowRestore.dmg)
 
-## インストール
-
-配布は行っていません。以下の「ビルド手順」で自前ビルドしてください。
+> DMG を開き、`WindowRestore.app` を `/Applications/` にドラッグ&ドロップしてください。
 
 ## 使用方法
 
-1. メニューバーのWindowRestoreアイコンをクリック
+1. メニューバーの Window Restore アイコンをクリック
 2. 「現在のレイアウトを保存」でレイアウトを保存
 3. 「レイアウトを復元」で保存されたレイアウトを復元
 4. 「レイアウト一覧」で保存されたレイアウトを管理
 
 ## 開発
 
-### 必要な環境（開発・動作確認）
+### 必要な環境
 
-- Xcode Command Line Tools（Xcode本体は不要。配布やコード署名を行う場合はXcode推奨）
+- Xcode 15+
 - macOS 13+
 
-### ビルド手順（開発）
+### ビルド手順
 
 ```bash
-# SwiftPMでのビルド（CLT環境）
-cd mac-app
-swift build -c release
+# Xcode で開く
+open WindowRestore.xcodeproj
 ```
 
-### .app の作成と起動（ログイン項目に追加したい場合）
+Xcode で **Cmd+B**（Build）または **Cmd+R**（Run）。
 
-```bash
-# .appバンドルを作成（dist/WindowRestore.app）
-bash scripts/make_app.sh
+### .app の配置
 
-# 起動
-open "dist/WindowRestore.app"
-```
+1. Xcode で Build（Cmd+B）
+2. Products フォルダから `WindowRestore.app` を `/Applications/` にコピー
+3. 初回起動で通知許可のダイアログが表示されます。許可してください
+4. アクセシビリティ権限が必要な場合、システム設定の案内に従って有効化してください
 
-- 初回起動で通知許可のダイアログが表示されます。許可してください。
-- アクセシビリティ権限が必要な場合、システム設定の案内に従って有効化してください。
-- ログイン項目への追加: システム設定 → 一般 → ログイン項目 → 「+」で `dist/WindowRestore.app` を追加
+### ログイン項目への追加
 
-### アプリアイコンの設定（Finder等の.appアイコン）
+システム設定 → 一般 → ログイン項目 → 「+」で `WindowRestore.app` を追加
 
-1. アイコン画像を配置（固定パス）
-   - `mac-app/Sources/Resources/window_dog_icon.png`
-2. .app生成スクリプトを実行
-   - `bash scripts/make_app.sh`
-   - スクリプトが `AppIcon.icns` をアプリ内 `Contents/Resources/` に生成・組み込みます（中間ファイルは残しません）
-3. 反映確認
-   - Finderで `dist/WindowRestore.app` を確認。反映されない場合はFinderを再起動、または.app名を変更→戻すと更新されます
+## ドキュメント
 
-補足: Dock非表示（`LSUIElement=true`）アプリのため、Dockアイコンは表示されません。
-
-### メニューバーのステータスアイコン
-
-- アプリ起動時に「四角枠＋Dog」テキストのアイコンを描画して固定表示します（テーマに合わせて自動反転されるテンプレート画像）。
-
-## 仕様詳細
-
-Swift単独版の詳細仕様は `docs/SWIFT_ONLY_SPEC.md` を参照してください。
+| ドキュメント | 内容 |
+|---|---|
+| [`docs/SPEC.md`](docs/SPEC.md) | 仕様書（機能要件・データモデル・アーキテクチャ） |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | 設計・実装ガイド（処理フロー・トラブルシュート・コード読み解き） |
+| [`docs/RELEASE.md`](docs/RELEASE.md) | DMG 配布・リリース手順 |
+| [`docs/TASK_SCHEDULE.md`](docs/TASK_SCHEDULE.md) | 開発工程表（履歴） |
 
 ## ライセンス
 
 MIT License
-
-## コンタクト / サポートポリシー
-
-本プロジェクトは現時点で公開Issue/PRの受け入れを前提としていません。改善提案や不具合の共有が必要な場合は、リリースノートやドキュメントを参照のうえ、適宜バージョン更新をお待ちください。
-
-運用・サポートに関する個別対応は行っていません。
