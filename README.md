@@ -6,6 +6,10 @@
 
 macOS 向けウィンドウ位置・サイズ・ディスプレイ復元アプリケーション
 
+> **⚠️ 開発中**
+> 現在開発段階のため、配布パッケージ（DMG）は提供していません。
+> ソースコードから Xcode でビルドして使用してください（[ビルド手順](#ビルド手順)参照）。
+
 ## 概要
 
 Window Restore は、macOS 上でユーザーのウィンドウ配置（位置・サイズ・所属ディスプレイ）を記録・復元し、必要に応じて該当アプリを起動してレイアウトを再現するアプリケーションです。
@@ -26,12 +30,6 @@ Window Restore は、macOS 上でユーザーのウィンドウ配置（位置�
 | 開発言語 | Swift |
 | フレームワーク | AppKit / CoreGraphics / Accessibility API |
 | ビルドシステム | Xcode |
-
-## ダウンロード
-
-[**Download (DMG)**](https://github.com/<user>/WindowRestore/releases/latest/download/WindowRestore.dmg)
-
-> DMG を開き、`WindowRestore.app` を `/Applications/` にドラッグ&ドロップしてください。
 
 ## 使用方法
 
