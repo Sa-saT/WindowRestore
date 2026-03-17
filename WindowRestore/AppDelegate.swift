@@ -123,10 +123,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         
-        // アイコンの設定
+        // アイコンの設定（createMenuBarIcon 内で isTemplate 設定済み）
         if let button = statusBarItem.button {
-            button.image = createDogMenuBarIcon()
-            button.image?.isTemplate = true
+            button.image = createMenuBarIcon()
             button.toolTip = "Window Restore - ウィンドウレイアウト管理"
             button.title = ""
             button.imagePosition = .imageOnly
@@ -139,7 +138,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     
 
-    /// 犬アイコン（四角枠＋DOGテキスト）を描画して返す
+    /// メニューバーアイコンを生成する。
+    /// アプリアイコン（Assets.xcassets/AppIcon）をメニューバーサイズ(18pt)にリサイズして返す。
+    /// テンプレートモードにより macOS がダーク/ライトモードを自動で制御する。
+    /// アプリアイコンが取得できない場合は createDogMenuBarIcon() にフォールバック。
+    private func createMenuBarIcon() -> NSImage {
+        if let image = NSImage(named: "MenuBarIcon") {
+            image.isTemplate = true
+            return image
+        }
+        return createDogMenuBarIcon()
+    }
+
+    /// 犬アイコン（四角枠＋DOGテキスト）を描画して返す（フォールバック用）
     private func createDogMenuBarIcon() -> NSImage {
         let size = NSSize(width: 18, height: 18)
         // lockFocus() は起動直後に描画コンテキストが未確立だと失敗するため
@@ -171,49 +182,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return image
     }
 
-    /// Resources から DogIcon.(png|pdf|icns) をロード
-    private func loadDogIconResource() -> NSImage? {
-        #if SWIFT_PACKAGE
-        let bundle = Bundle.module
-        #else
-        let bundle = Bundle.main
-        #endif
-        let candidates = [
-            ("DogIcon", "png"),
-            ("DogIcon", "pdf"),
-            ("DogIcon", "icns")
-        ]
-        for (name, ext) in candidates {
-            if let url = bundle.url(forResource: name, withExtension: ext), let img = NSImage(contentsOf: url) {
-                return img
-            }
-        }
-        return nil
-    }
-
-    /// 犬アイコン適用前にプレビューして確認
-    private func promptAndApplyDogIcon() {
-        guard let statusBarItem = statusBarItem, let button = statusBarItem.button else { return }
-        let preview = createDogMenuBarIcon()
-
-        let alert = NSAlert()
-        alert.messageText = "メニューバーアイコンの変更"
-        alert.informativeText = "四角い枠内に『DOG』と描いたアイコンに変更します。適用しますか？"
-        alert.addButton(withTitle: "適用")
-        alert.addButton(withTitle: "キャンセル")
-
-        let imageView = NSImageView(frame: NSRect(x: 0, y: 0, width: 64, height: 64))
-        imageView.image = preview
-        imageView.imageScaling = .scaleProportionallyUpOrDown
-        alert.accessoryView = imageView
-
-        let resp = alert.runModal()
-        if resp == .alertFirstButtonReturn {
-            button.image = preview
-            button.image?.isTemplate = true
-        }
-    }
-    
     /// メニューコントローラーの設定
     /// メニューバーのドロップダウンメニューを管理
     private func setupMenuController() {
@@ -290,153 +258,80 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 /// メニュー操作のイベントを処理
 extension AppDelegate: MenuControllerDelegate {
     
-    /// 現在のレイアウトを保存
-    /// 引数: name - 保存するレイアウト名
+    /// 現在のレイアウトを保存（スマート統合版）
+    /// 物理ディスプレイを自動検出し、仮想Spaceの追加保存も案内する
     func saveCurrentLayout(name: String) {
         print("レイアウトを保存中: \(name)")
-        
-        // 単一保存/マルチSpace保存の選択
-        let choice = NSAlert()
-        choice.messageText = "保存モードの選択"
-        choice.informativeText = "複数のSpaceを連続して保存しますか？"
-        choice.addButton(withTitle: "マルチSpace開始")
-        choice.addButton(withTitle: "単一保存")
-        choice.addButton(withTitle: "キャンセル")
-        let resp = choice.runModal()
 
-        if resp == .alertFirstButtonReturn {
-            // マルチSpace保存フロー
-            var index = 1
-            var continueLoop = true
-            while continueLoop {
-                let baseLabel = "Space\(index)"
-                var usedLabel = baseLabel
-                // 重複ラベル検知
-                if WindowManager.shared.hasLabel(name: name, label: baseLabel) {
-                    let dup = NSAlert()
-                    dup.messageText = "同じSpaceで保存しましたか？"
-                    dup.informativeText = "ラベル \(baseLabel) は既に存在します。どうしますか？"
-                    dup.addButton(withTitle: "置き換え")
-                    dup.addButton(withTitle: "別名で保存")
-                    dup.addButton(withTitle: "スキップ")
-                    let d = dup.runModal()
-                    if d == .alertFirstButtonReturn {
-                        // 置き換え
-                        let captured = WindowManager.shared.fetchVisibleAppWindows().map { w in
-                            WindowInfo(ownerName: w.ownerName, bundleIdentifier: w.bundleIdentifier, windowName: w.windowName, bounds: w.bounds, displayUUID: w.displayUUID, spaceNumber: w.spaceNumber, layoutLabel: baseLabel)
-                        }
-                        do {
-                            try WindowManager.shared.replaceWindowsForLabel(name: name, label: baseLabel, with: captured)
-                            usedLabel = baseLabel
-                            showInfoNotification(title: "保存", message: "\(baseLabel) を置き換えました。次のSpaceへ切り替えてください。")
-                        } catch {
-                            showErrorNotification(title: "保存エラー", message: error.localizedDescription)
-                        }
-                    } else if d == .alertSecondButtonReturn {
-                        // 別名
-                        let newLabel = WindowManager.shared.nextAvailableLabel(name: name, baseLabel: baseLabel)
-                        do {
-                            try WindowManager.shared.saveWindowsAppend(name: name, label: newLabel)
-                            usedLabel = newLabel
-                            showInfoNotification(title: "保存", message: "\(newLabel) を保存しました。次のSpaceへ切り替えてください。")
-                        } catch {
-                            showErrorNotification(title: "保存エラー", message: error.localizedDescription)
-                        }
-                    } else {
-                        // スキップ
-                        usedLabel = baseLabel
-                        // 何もしない
-                    }
-                } else {
-                    do {
-                        try WindowManager.shared.saveWindowsAppend(name: name, label: baseLabel)
-                        usedLabel = baseLabel
-                        showInfoNotification(title: "保存", message: "\(baseLabel) を保存しました。次のSpaceへ切り替えてください。")
-                    } catch {
-                        showErrorNotification(title: "保存エラー", message: error.localizedDescription)
-                    }
-                }
-
-                print("保存: \(name) - \(usedLabel)")
-
-                // 次のSpaceに切り替えを促す
-                let nextAlert = NSAlert()
-                nextAlert.messageText = "次のSpaceに切り替えてください"
-                nextAlert.informativeText = "Spaceを切り替えたら『次を取得』を押してください。すべて保存したら『完了』を押します。"
-                nextAlert.addButton(withTitle: "次を取得")
-                nextAlert.addButton(withTitle: "完了")
-                nextAlert.addButton(withTitle: "キャンセル")
-                let nextResp = nextAlert.runModal()
-                if nextResp == .alertFirstButtonReturn {
-                    index += 1
-                    continueLoop = true
-                } else if nextResp == .alertSecondButtonReturn {
-                    continueLoop = false
-                } else {
-                    continueLoop = false
-                }
-            }
-            showSuccessNotification(title: "保存完了", message: "レイアウト「\(name)」の保存が完了しました")
-        } else if resp == .alertSecondButtonReturn {
-            // 単一保存（現在のSpaceのみ）
-            let result = LayoutAPI.saveLayout(name: name)
-            switch result {
-            case .success:
-                print("レイアウトの保存が成功しました: \(name)")
-                showSuccessNotification(title: "保存完了", message: "レイアウト「\(name)」が保存されました")
-            case .failure(_, let message):
-                print("レイアウトの保存に失敗しました: \(message)")
-                showErrorNotification(title: "保存エラー", message: message)
-            }
-        } else {
-            // キャンセル
-            return
+        // 既存ファイルがある場合は上書き確認
+        if WindowManager.shared.layoutExists(name: name) {
+            let confirm = NSAlert()
+            confirm.messageText = "「\(name)」は既に存在します"
+            confirm.informativeText = "上書きして最初から保存し直しますか？"
+            confirm.addButton(withTitle: "上書きして保存")
+            confirm.addButton(withTitle: "キャンセル")
+            guard confirm.runModal() == .alertFirstButtonReturn else { return }
+            try? WindowManager.shared.deleteLayout(name: name)
         }
+
+        let screenCount = NSScreen.screens.count
+        var spaceIndex = 1
+
+        repeat {
+            let label = "Space\(spaceIndex)"
+
+            // 現在の全ディスプレイのウィンドウを一括キャプチャして保存
+            do {
+                try WindowManager.shared.saveWindowsAppend(name: name, label: label)
+            } catch {
+                showErrorNotification(title: "保存エラー", message: error.localizedDescription)
+                return
+            }
+
+            // 保存件数をカウント
+            let savedCount = (try? WindowManager.shared.loadWindows(name: name))
+                .map { $0.filter { $0.layoutLabel == label }.count } ?? 0
+            let displayText = screenCount > 1 ? "\(screenCount)台のディスプレイ・" : ""
+
+            print("保存完了: \(name) - \(label) (\(savedCount)件)")
+
+            // 他のSpaceも保存するか確認
+            let nextAlert = NSAlert()
+            nextAlert.messageText = "\(label) を保存しました"
+            nextAlert.informativeText = """
+                \(displayText)\(savedCount)個のウィンドウを記録しました。
+
+                他にも保存するSpaceがありますか？
+                仮想Spaceがある場合、切り替えて追加保存できます。
+                """
+            nextAlert.addButton(withTitle: "次のSpaceを保存")
+            nextAlert.addButton(withTitle: "保存完了")
+            guard nextAlert.runModal() == .alertFirstButtonReturn else { break }
+
+            // Space切替を案内
+            let switchAlert = NSAlert()
+            switchAlert.messageText = "Spaceを切り替えてください"
+            switchAlert.informativeText = "Space\(spaceIndex + 1) を保存します。\n対象のSpaceに切り替えたら「準備完了」を押してください。"
+            switchAlert.addButton(withTitle: "準備完了")
+            switchAlert.addButton(withTitle: "キャンセル")
+            guard switchAlert.runModal() == .alertFirstButtonReturn else { break }
+
+            spaceIndex += 1
+        } while true
+
+        let spaceText = spaceIndex > 1 ? "（\(spaceIndex) Space）" : ""
+        showSuccessNotification(title: "保存完了", message: "レイアウト「\(name)」を保存しました\(spaceText)")
     }
     
-    /// レイアウトを復元
-    /// 引数: name - 復元するレイアウト名
+    /// レイアウトを復元（統合一括版）
+    /// ラベル有無にかかわらず全エントリを一括復元。AX API は Space を横断するため Space 切替不要。
     func restoreLayout(name: String) {
         print("レイアウトを復元中: \(name)")
-        
-        // ラベル付きならインタラクティブ復元を提案
-        let labels = WindowManager.shared.layoutLabels(in: name)
-        if !labels.isEmpty {
-            let alert = NSAlert()
-            alert.messageText = "復元モードの選択"
-            alert.informativeText = "ラベル付きのレイアウトが見つかりました。Spaceを切り替えながら順に復元しますか？"
-            alert.addButton(withTitle: "一括復元")
-            alert.addButton(withTitle: "インタラクティブ復元")
-            alert.addButton(withTitle: "キャンセル")
-            let resp = alert.runModal()
-            if resp == .alertSecondButtonReturn {
-                do {
-                    try WindowManager.shared.restoreWindowsInteractive(name: name) { label in
-                        let prompt = NSAlert()
-                        prompt.messageText = "Space切替のお願い"
-                        prompt.informativeText = "\(label) を復元します。対象のSpaceに切り替えたら『復元』を押してください。"
-                        prompt.addButton(withTitle: "復元")
-                        prompt.addButton(withTitle: "キャンセル")
-                        let r = prompt.runModal()
-                        return r == .alertFirstButtonReturn
-                    }
-                    showSuccessNotification(title: "復元完了", message: "レイアウト「\(name)」を復元しました")
-                } catch {
-                    showErrorNotification(title: "復元エラー", message: error.localizedDescription)
-                }
-                return
-            } else if resp == .alertThirdButtonReturn {
-                // キャンセル
-                return
-            }
-        }
-
-        // 通常の一括復元
         let result = LayoutAPI.restoreLayout(name: name)
         switch result {
         case .success:
             print("レイアウトの復元が成功しました: \(name)")
-            showSuccessNotification(title: "復元完了", message: "レイアウト「\(name)」が復元されました")
+            showSuccessNotification(title: "復元完了", message: "レイアウト「\(name)」を復元しました")
         case .failure(_, let message):
             print("レイアウトの復元に失敗しました: \(message)")
             showErrorNotification(title: "復元エラー", message: message)

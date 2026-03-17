@@ -21,9 +21,13 @@ Packages/
 
 # macOS
 .DS_Store
+**/.DS_Store
 *.swp
 *~
 
 # Old SPM build
 /target
 _archived_spm/
+
+# Tools / generated output
+repomix-output.xml

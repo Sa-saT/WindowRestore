@@ -70,8 +70,9 @@ WindowRestore/
 - `fetchVisibleAppWindows()` — 現在のウィンドウ配列を取得
 - `saveWindows(name:)` / `saveWindowsAppend(name:label:)` — JSON 保存
 - `loadWindows(name:)` — JSON 読み込み
-- `restoreWindows(name:)` / `restoreWindowsInteractive(name:confirm:)` — 復元処理
+- `restoreWindows(name:)` — 復元処理（全 Space 一括、重複除去・画面外防止込み）
 - `listLayouts()` / `deleteLayout(name:)` — レイアウト管理
+- `layoutExists(name:)` — 上書き確認用の存在チェック
 - `hasLabel(name:label:)` / `nextAvailableLabel(name:baseLabel:)` — マルチ Space ラベル管理
 - `layoutLabels(in:)` — ラベル一覧取得
 - `replaceWindowsForLabel(name:label:with:)` — ラベル差し替え
@@ -100,16 +101,18 @@ WindowRestore/
 ```mermaid
 flowchart TD
     A[メニュー「保存」クリック] --> B[名前入力]
-    B -->|OK| C{保存モード選択}
-    C -->|単一保存| D[WindowManager.fetchVisibleAppWindows]
-    D --> E[WindowManager.saveWindows]
-    E --> F[layouts/name.json に保存]
-    C -->|マルチSpace| G[Space1 取得・保存]
-    G --> H[次の Space に切替を促す]
-    H -->|次を取得| I[SpaceN 取得・ラベル付き保存]
-    I --> H
-    H -->|完了| J[保存完了通知]
-    B -->|キャンセル| X[中断]
+    B -->|OK| C{既存レイアウト?}
+    C -->|Yes| D[上書き確認]
+    D -->|OK| E[既存削除]
+    D -->|キャンセル| X[中断]
+    C -->|No| E
+    E --> G[Space1 取得・ラベル付き保存]
+    G --> H{次の Space を保存?}
+    H -->|Yes| I[Space 切替を促す]
+    I --> J[SpaceN 取得・ラベル付き保存]
+    J --> H
+    H -->|完了| K[保存完了通知]
+    B -->|キャンセル| X
 ```
 
 ### 3.2 復元フロー
@@ -117,17 +120,16 @@ flowchart TD
 ```mermaid
 flowchart TD
     A[メニュー「復元」クリック] --> B[レイアウト選択]
-    B --> C{ラベル付き?}
-    C -->|Yes| D{復元モード選択}
-    D -->|インタラクティブ| E[Space 切替を促す]
-    E --> F[ラベル単位で AX API 復元]
-    F --> E
-    D -->|一括| G[全ウィンドウ一括復元]
-    C -->|No| G
-    G --> H[AXUIElement で位置・サイズ設定]
-    H --> I{成功?}
-    I -->|Yes| J[復元完了通知]
-    I -->|No| K[スキップ/ログ出力]
+    B --> C[deduplicateForRestore で重複除去]
+    C --> D[各ウィンドウに restoreSingleWindow]
+    D --> E{アプリ起動済み?}
+    E -->|No| F[NSWorkspace で起動・最大10秒待機]
+    F --> G[AX API でウィンドウ取得]
+    E -->|Yes| G
+    G --> H[bestMatchWindow でウィンドウ特定]
+    H --> I[clampWindowToScreen で画面内に収める]
+    I --> J[AXUIElement で位置・サイズ設定]
+    J --> K[復元完了通知]
 ```
 
 ### 3.3 権限チェックフロー
@@ -162,12 +164,12 @@ flowchart TD
 
 - JSON にシステム UI や極小ウィンドウが混入 → フィルタ済みで再保存
 - 通知権限が未許可でエラーが見えない → ターミナルから起動してログ確認
-- 対象アプリが未起動 → 該当ウィンドウはスキップされる
+- 対象アプリが未起動 → 自動起動して最大 10 秒待機してから復元を試みる
 
 ### 期待と違うウィンドウが動く
 
-- タイトル一致で対象特定を強化（実装改善余地あり）
-- 複数ウィンドウを持つアプリでは最初のウィンドウが対象になる場合がある
+- `bestMatchWindow` がタイトル完全一致 → 座標最近傍の順で選択するため、通常は正しいウィンドウが選ばれる
+- タイトルが空のアプリでは保存時の座標に最も近いウィンドウが選択される
 
 ---
 
@@ -197,15 +199,13 @@ flowchart TD
 
 **保存（Save）**
 1. `MenuController` → ユーザーが名前入力
-2. `AppDelegate.saveCurrentLayout(name:)` → 保存モード選択
-3. 単一: `LayoutAPI.saveLayout(name:)` → `WindowManager.saveWindows(name:)`
-4. マルチ: `WindowManager.saveWindowsAppend(name:label:)` をループ
+2. `AppDelegate.saveCurrentLayout(name:)` → 既存確認・ループ開始
+3. `WindowManager.saveWindowsAppend(name:label:)` で各 Space をラベル付き保存
+4. 「次の Space を保存?」確認 → Yes なら Space 切替を促して繰り返し
 
 **復元（Restore）**
 1. `MenuController` → レイアウト選択
-2. `AppDelegate.restoreLayout(name:)` → 復元モード選択
-3. 一括: `LayoutAPI.restoreLayout(name:)` → `WindowManager.restoreWindows(name:)`
-4. インタラクティブ: `WindowManager.restoreWindowsInteractive(name:confirm:)`
+2. `AppDelegate.restoreLayout(name:)` → `LayoutAPI.restoreLayout(name:)` → `WindowManager.restoreWindows(name:)`
 
 **一覧 / 削除**
 - `LayoutAPI.listLayouts()` → `WindowManager.listLayouts()`

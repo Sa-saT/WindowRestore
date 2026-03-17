@@ -35,9 +35,10 @@
 | 機能 | 説明 |
 |------|------|
 | ウィンドウ状態の保存 | 表示中ウィンドウの「アプリ名」「バンドル ID」「タイトル」「位置・サイズ」「所属ディスプレイ UUID」「Space ラベル」を取得し JSON で保存 |
-| ウィンドウ状態の復元 | 保存 JSON を読み込み、Accessibility API（`AXUIElement`）で各ウィンドウを記録位置・サイズに移動 |
-| マルチ Space 保存 | 複数の Space を順に切り替えながらラベル付きで一括保存 |
-| インタラクティブ復元 | ラベル付きレイアウトを Space ごとに順次復元（ユーザーが切替を確認） |
+| ウィンドウ状態の復元 | 保存 JSON を読み込み、Accessibility API（`AXUIElement`）で各ウィンドウを記録位置・サイズに移動。重複エントリは `deduplicateForRestore` で除去 |
+| マルチ Space 保存 | 複数の Space を順に切り替えながらラベル付きで一括保存。ディスプレイ複数台時は追加保存を自動確認 |
+| 一括復元（全 Space 対応） | AX API が Space を横断するため、Space 切替不要で全 Space のウィンドウを一括復元（インタラクティブ復元は廃止） |
+| 画面外配置防止 | 復元時に `clampWindowToScreen` でウィンドウを接続ディスプレイ内に収める。UUID 一致ディスプレイ優先、なければ最近傍ディスプレイ |
 | メニューバー UI | 常駐アイコン + ドロップダウンメニュー（保存・復元・レイアウト一覧・設定・終了） |
 | レイアウト管理 | 名前付きレイアウトの作成・一覧表示・選択・削除・切り替え |
 | 設定管理 | 自動復元、ディスプレイ変化検知等のオプションを `config.json` に保存 |
@@ -58,7 +59,6 @@ struct WindowInfo: Codable {
     let windowName: String?
     let bounds: CGRect
     let displayUUID: String?
-    let spaceNumber: Int?
     let layoutLabel: String?
 }
 ```
@@ -75,7 +75,6 @@ struct WindowInfo: Codable {
     "windowName": "project",
     "bounds": [[0, 0], [1600, 1200]],
     "displayUUID": "37D8832A-...",
-    "spaceNumber": 1,
     "layoutLabel": "Space1"
   }
 ]
@@ -178,7 +177,6 @@ window_restore/
 | `windowName` | `kCGWindowName` |
 | `bounds` | `kCGWindowBounds` |
 | `displayUUID` | `NSScreenNumber` → `CGDisplayCreateUUIDFromDisplayID` |
-| `spaceNumber` | 任意項目 |
 
 ### 6.3 除外条件
 
@@ -191,11 +189,12 @@ window_restore/
 ## 7. ウィンドウ復元の仕様
 
 1. `AXIsProcessTrusted()` で権限確認（false なら中断・通知）
-2. 保存 JSON を読み込み
-3. 対象アプリの PID を `NSRunningApplication` で特定
-4. `AXUIElementCreateApplication(pid)` → `kAXWindowsAttribute` でウィンドウ取得
-5. `kAXPositionAttribute` / `kAXSizeAttribute` を `AXValueCreate` で設定
-6. ウィンドウ未取得・アプリ未起動はスキップして続行
+2. 保存 JSON を読み込み、`deduplicateForRestore` で重複エントリを除去
+3. `bundleIdentifier` でアプリを特定。未起動の場合は `NSWorkspace.launchApplication` で起動し最大 10 秒待機
+4. `AXUIElementCreateApplication(pid)` → `kAXWindowsAttribute` で全 Space のウィンドウ取得
+5. `bestMatchWindow` でウィンドウを特定（タイトル一致 → 座標最近傍の順に選択）
+6. `clampWindowToScreen` で画面外配置を防止（UUID 一致ディスプレイ優先）
+7. `kAXPositionAttribute` / `kAXSizeAttribute` を `AXValueCreate` で設定
 
 ---
 

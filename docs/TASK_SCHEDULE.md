@@ -173,6 +173,41 @@
 
 ---
 
-**作成日**: 2024年1月15日  
-**最終更新**: 2025年10月23日（Swift FFIエラー統合・Rust初期化安全化）  
+---
+
+## Phase 6: コード品質・復元精度の改善（改善フェーズ）
+
+> Rust資産削除・純Swift化（refactor: 6ca65c7）以降に特定された問題への対処
+
+### ✅ 6.1 データ構造の整理
+
+- [x] `WindowInfo.spaceNumber: Int?` を削除
+  - `WindowInfo` 構造体・`fetchVisibleAppWindows`・`saveWindowsAppend`・`replaceWindowsForLabel` 全4箇所から除去済み
+
+### ✅ 6.2 ウィンドウマッチング精度の向上
+
+- [x] `restoreSingleWindow` のウィンドウ選択を `bestMatchWindow` に刷新
+  - タイトル一致1件 → そのまま採用
+  - タイトル一致が複数 → 保存座標に最も近いウィンドウを選択（`closestWindow`）
+  - タイトル不一致 → 全候補から保存座標に最も近いウィンドウを選択
+
+### ✅ 6.3 Save時の重複エントリ対処
+
+- [x] `deduplicateForRestore` を実装し `restoreWindows` に組み込み
+  - 接続中ディスプレイのエントリを優先（第1パス）
+  - `bundleId + windowName + displayUUID` が同一のエントリは先着1件のみ採用
+  - 異なるディスプレイの同名ウィンドウはそれぞれ独立して復元
+
+### ⬜ 6.4 対応不要と判断した項目
+
+- [対応不要] 未起動アプリ起動中の UI フリーズ → ユーザー判断でそのまま許容
+- [対応不要] 未起動アプリの `async/await` 化 → UIフリーズ許容のため不要
+- [対応不要] 配置失敗時のユーザー通知 → 通知不要との判断
+- [対応不要] `kCGWindowWorkspace` の使用 → Restore に活かす公開APIがなく無価値
+- [対応不要] インタラクティブ復元 → 6ca65c7 以降の調査で一括復元と等価と判明・削除済み
+
+---
+
+**作成日**: 2024年1月15日
+**最終更新**: 2026年3月17日（Phase 6 追記：純Swift化後の改善タスク整理）
 **担当者**: 開発者

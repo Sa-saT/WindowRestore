@@ -10,7 +10,6 @@ struct WindowInfo: Codable {
     let windowName: String?
     let bounds: CGRect
     let displayUUID: String?
-    let spaceNumber: Int?
     let layoutLabel: String?
 }
 
@@ -57,7 +56,6 @@ final class WindowManager {
                 windowName: raw.windowName,
                 bounds: raw.bounds,
                 displayUUID: displayUUID,
-                spaceNumber: nil,
                 layoutLabel: nil
             )
         }
@@ -182,6 +180,11 @@ final class WindowManager {
         try FileHelper.deleteLayout(name: name)
     }
 
+    func layoutExists(name: String) -> Bool {
+        guard let url = try? FileHelper.layoutFileURL(name: name) else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
     // MARK: - 復元
 
     func restoreWindows(name: String) throws {
@@ -189,11 +192,43 @@ final class WindowManager {
             throw NSError(domain: "WindowManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "アクセシビリティ権限が必要です"])
         }
         let windows = try loadWindows(name: name)
-        for win in windows {
+        let deduped = deduplicateForRestore(windows)
+        for win in deduped {
             restoreSingleWindow(win)
-            // ウィンドウ間の僅かな間隔
             usleep(200_000)
         }
+    }
+
+    /// 同一アプリ・同一タイトル・同一ディスプレイの重複エントリを除去する。
+    /// 接続中のディスプレイに一致するエントリを優先し、それ以外は先着1件のみ残す。
+    private func deduplicateForRestore(_ windows: [WindowInfo]) -> [WindowInfo] {
+        let connectedUUIDs: Set<String> = Set(NSScreen.screens.compactMap { screen in
+            guard let displayId = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value else { return nil }
+            if let uuidRef = CGDisplayCreateUUIDFromDisplayID(displayId)?.takeRetainedValue(),
+               let cfStr = CFUUIDCreateString(kCFAllocatorDefault, uuidRef) {
+                return cfStr as String
+            }
+            return String(displayId)
+        })
+
+        // キー: bundleId(orOwnerName) + "|" + windowName + "|" + displayUUID
+        // 同一キー = 同一物理ウィンドウの重複保存 → 先着1件のみ採用
+        var seen = Set<String>()
+        var result: [WindowInfo] = []
+
+        // 第1パス: 接続中ディスプレイのエントリを優先
+        for w in windows {
+            guard let uuid = w.displayUUID, connectedUUIDs.contains(uuid) else { continue }
+            let key = "\(w.bundleIdentifier ?? w.ownerName)|\(w.windowName ?? "")|\(uuid)"
+            if seen.insert(key).inserted { result.append(w) }
+        }
+        // 第2パス: 未登録のエントリを追加（異なるディスプレイの別ウィンドウ等）
+        for w in windows {
+            let uuid = w.displayUUID ?? ""
+            let key = "\(w.bundleIdentifier ?? w.ownerName)|\(w.windowName ?? "")|\(uuid)"
+            if seen.insert(key).inserted { result.append(w) }
+        }
+        return result
     }
 
     // MARK: - マルチSpace: 追記保存/ラベルごと復元
@@ -206,7 +241,6 @@ final class WindowManager {
                        windowName: w.windowName,
                        bounds: w.bounds,
                        displayUUID: w.displayUUID,
-                       spaceNumber: w.spaceNumber,
                        layoutLabel: label)
         }
         var existing: [WindowInfo] = []
@@ -226,33 +260,6 @@ final class WindowManager {
                 return ai < bi
             }
             return a < b
-        }
-    }
-
-    func restoreWindowsForLabel(name: String, label: String) throws {
-        guard hasAccessibilityPermission() else {
-            throw NSError(domain: "WindowManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "アクセシビリティ権限が必要です"])
-        }
-        let all = try loadWindows(name: name)
-        let targets = all.filter { $0.layoutLabel == label }
-        for win in targets {
-            restoreSingleWindow(win)
-            usleep(200_000)
-        }
-    }
-
-    func restoreWindowsInteractive(name: String, prompt: (String) -> Bool) throws {
-        let labels = layoutLabels(in: name)
-        guard !labels.isEmpty else {
-            // ラベルなしは通常復元
-            try restoreWindows(name: name)
-            return
-        }
-        for label in labels {
-            // プロンプトがtrueを返した場合に実行（ユーザーがSpace切替を完了した合図）
-            let proceed = prompt(label)
-            if !proceed { break }
-            try restoreWindowsForLabel(name: name, label: label)
         }
     }
 
@@ -281,11 +288,128 @@ final class WindowManager {
                        windowName: w.windowName,
                        bounds: w.bounds,
                        displayUUID: w.displayUUID,
-                       spaceNumber: w.spaceNumber,
                        layoutLabel: label)
         }
         let url = try FileHelper.layoutFileURL(name: name)
         try FileHelper.saveJSON(replaced, to: url)
+    }
+
+    // MARK: - ウィンドウマッチングヘルパー
+
+    /// タイトル一致を優先し、候補が複数 or ゼロの場合は保存座標に最も近いウィンドウを返す
+    private func bestMatchWindow(
+        from axWindows: [AXUIElement],
+        windowName: String?,
+        savedOrigin: CGPoint
+    ) -> AXUIElement {
+        if let expected = windowName, !expected.isEmpty {
+            let matches = axWindows.filter { w in
+                var ref: CFTypeRef?
+                guard AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &ref) == .success,
+                      let title = ref as? String else { return false }
+                return title == expected
+            }
+            if matches.count == 1 { return matches[0] }
+            if matches.count > 1 {
+                // 同一タイトルが複数 → 保存座標に近い方を選ぶ
+                return closestWindow(from: matches, to: savedOrigin) ?? matches[0]
+            }
+        }
+        // タイトル不一致 or タイトルなし → 全候補から保存座標に最も近いものを選ぶ
+        return closestWindow(from: axWindows, to: savedOrigin) ?? axWindows[0]
+    }
+
+    /// AXUIElement 群の中で現在位置が target に最も近いものを返す
+    private func closestWindow(from windows: [AXUIElement], to target: CGPoint) -> AXUIElement? {
+        var best: AXUIElement?
+        var bestDist = CGFloat.infinity
+        for w in windows {
+            var ref: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(w, kAXPositionAttribute as CFString, &ref) == .success,
+                  ref != nil else { continue }
+            // CFTypeRef → AXValue のキャストは常に成功するため as! を使用
+            let axVal = ref! as! AXValue
+            var pos = CGPoint.zero
+            guard AXValueGetValue(axVal, .cgPoint, &pos) else { continue }
+            let dist = hypot(pos.x - target.x, pos.y - target.y)
+            if dist < bestDist { bestDist = dist; best = w }
+        }
+        return best
+    }
+
+    // MARK: - 画面外防止ヘルパー
+
+    /// NSScreen.frame（Cocoa座標: y上向き）を CGWindow座標系（y下向き）に変換する
+    private func cgWindowFrame(for screen: NSScreen) -> CGRect {
+        let mainH = NSScreen.screens.first?.frame.height ?? screen.frame.height
+        let f = screen.frame
+        return CGRect(x: f.minX,
+                      y: mainH - f.maxY,
+                      width: f.width,
+                      height: f.height)
+    }
+
+    /// スクリーンの displayUUID が保存値と一致するか判定する
+    private func screenMatchesUUID(_ screen: NSScreen, uuid: String) -> Bool {
+        guard let displayId = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value else { return false }
+        if let uuidRef = CGDisplayCreateUUIDFromDisplayID(displayId)?.takeRetainedValue(),
+           let cfStr = CFUUIDCreateString(kCFAllocatorDefault, uuidRef) {
+            return (cfStr as String) == uuid
+        }
+        return String(displayId) == uuid
+    }
+
+    /// CGWindow座標系での点→矩形間距離（点が矩形内なら0）
+    private func distanceToCGFrame(_ point: CGPoint, _ frame: CGRect) -> CGFloat {
+        let dx = max(frame.minX - point.x, 0, point.x - frame.maxX)
+        let dy = max(frame.minY - point.y, 0, point.y - frame.maxY)
+        return sqrt(dx * dx + dy * dy)
+    }
+
+    /// ウィンドウ矩形を有効なスクリーン内に収める。
+    /// - preferredDisplayUUID が現在の接続済みスクリーンと一致すればそのスクリーンに配置。
+    /// - 一致しない場合は既存スクリーン内に収まっていればそのまま、
+    ///   完全に画面外なら最も近いスクリーンへ移動する。
+    private func clampWindowToScreen(_ rect: CGRect, preferredDisplayUUID: String?) -> CGRect {
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return rect }
+
+        // 1) UUID一致スクリーンを探す
+        let preferredScreen: NSScreen? = preferredDisplayUUID.flatMap { uuid in
+            screens.first { screenMatchesUUID($0, uuid: uuid) }
+        }
+
+        // 2) 対象スクリーンを決定
+        let targetScreen: NSScreen
+        if let preferred = preferredScreen {
+            // UUID一致 → そのスクリーンで確実にクランプ（解像度変更にも対応）
+            targetScreen = preferred
+        } else {
+            // UUID不一致（モニター交換等）
+            let cgFrames = screens.map { cgWindowFrame(for: $0) }
+            let isOnAnyScreen = cgFrames.contains { $0.intersects(rect) }
+            if isOnAnyScreen { return rect }  // 画面内に収まっていればそのまま
+
+            // 完全に画面外 → 最も近いスクリーンへ
+            let center = CGPoint(x: rect.midX, y: rect.midY)
+            targetScreen = screens.min {
+                distanceToCGFrame(center, cgWindowFrame(for: $0)) <
+                distanceToCGFrame(center, cgWindowFrame(for: $1))
+            } ?? screens[0]
+        }
+
+        // 3) targetScreen の CGWindow座標系フレームでクランプ
+        let frame = cgWindowFrame(for: targetScreen)
+        if frame.contains(CGPoint(x: rect.minX, y: rect.minY)) &&
+           rect.maxX <= frame.maxX && rect.maxY <= frame.maxY {
+            return rect  // 完全に収まっていれば変更不要
+        }
+
+        let w = min(rect.width, frame.width)
+        let h = min(rect.height, frame.height)
+        let x = max(frame.minX, min(rect.minX, frame.maxX - w))
+        let y = max(frame.minY, min(rect.minY, frame.maxY - h))
+        return CGRect(x: x, y: y, width: w, height: h)
     }
 
     private func restoreSingleWindow(_ info: WindowInfo) {
@@ -325,23 +449,17 @@ final class WindowManager {
                 continue
             }
 
-            // タイトル一致があればそれを採用、なければ先頭
-            let targetWindow: AXUIElement = {
-                if let expected = info.windowName, !expected.isEmpty {
-                    for w in axWindows {
-                        var t: CFTypeRef?
-                        if AXUIElementCopyAttributeValue(w, kAXTitleAttribute as CFString, &t) == .success,
-                           let title = t as? String, title == expected {
-                            return w
-                        }
-                    }
-                }
-                return axWindows.first!
-            }()
+            // タイトル一致 → 複数なら保存座標に最も近いものを採用、なければ座標近似のみで選択
+            let targetWindow = bestMatchWindow(
+                from: axWindows,
+                windowName: info.windowName,
+                savedOrigin: info.bounds.origin
+            )
 
-            // 位置とサイズ設定
-            var pos = CGPoint(x: info.bounds.origin.x, y: info.bounds.origin.y)
-            var size = CGSize(width: info.bounds.size.width, height: info.bounds.size.height)
+            // 位置とサイズ設定（画面外防止クランプ適用）
+            let clampedBounds = clampWindowToScreen(info.bounds, preferredDisplayUUID: info.displayUUID)
+            var pos = CGPoint(x: clampedBounds.origin.x, y: clampedBounds.origin.y)
+            var size = CGSize(width: clampedBounds.size.width, height: clampedBounds.size.height)
 
             if let posValue = AXValueCreate(.cgPoint, &pos) {
                 let setPosErr = AXUIElementSetAttributeValue(targetWindow, kAXPositionAttribute as CFString, posValue)
