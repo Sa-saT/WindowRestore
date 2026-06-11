@@ -27,19 +27,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// 設定ウィンドウ
     private var settingsWindow: SettingsWindow?
 
-    
-    
-    /// アプリケーションの設定
-    private var appSettings: AppSettings
-    
-    // MARK: - 初期化
-    
-    /// デフォルトイニシャライザ
-    override init() {
-        self.appSettings = AppSettings()
-        super.init()
-    }
-    
     // MARK: - NSApplicationDelegate
     
     /// アプリケーション起動時の処理
@@ -383,12 +370,6 @@ extension AppDelegate: MenuControllerDelegate {
     private func showSuccessNotification(title: String, message: String) {
         postUserNotification(title: title, body: message)
     }
-    
-    /// 情報通知の表示
-    /// 引数: title - 通知タイトル、message - 通知メッセージ
-    private func showInfoNotification(title: String, message: String) {
-        postUserNotification(title: title, body: message)
-    }
 }
 
 // MARK: - PermissionManagerDelegate
@@ -441,24 +422,6 @@ extension AppDelegate: SettingsWindowDelegate {
         showSuccessNotification(title: "設定保存", message: "設定が正常に保存されました")
     }
 }
-
-// MARK: - アプリケーション設定
-
-/// アプリケーションの設定を管理
-struct AppSettings {
-    /// アプリケーション名
-    let appName = "Window Restore"
-    
-    /// アプリケーションのバージョン
-    let version = "1.0.0"
-    
-    /// デフォルトの復元間隔（ミリ秒）
-    let defaultRestoreDelayMs: UInt64 = 1000
-    
-    /// デフォルトの最大リトライ回数
-    let defaultMaxRetryAttempts: UInt32 = 3
-}
-
 
 // MARK: - UserNotifications 簡易通知
 

@@ -160,13 +160,6 @@ final class WindowManager {
 
     // MARK: - JSON 保存/読み込み
 
-    func saveWindows(name: String) throws {
-        try FileHelper.ensureDirectories()
-        let info = fetchVisibleAppWindows()
-        let url = try FileHelper.layoutFileURL(name: name)
-        try FileHelper.saveJSON(info, to: url)
-    }
-
     func loadWindows(name: String) throws -> [WindowInfo] {
         let url = try FileHelper.layoutFileURL(name: name)
         return try FileHelper.loadJSON([WindowInfo].self, from: url)

@@ -217,11 +217,6 @@ class MenuController {
         }
     }
 
-    /// 現在のメインメニューを取得（外部表示用）
-    func getMainMenu() -> NSMenu? {
-        return mainMenu
-    }
-    
     // MARK: - アクション
     
     /// 現在のレイアウトを保存
