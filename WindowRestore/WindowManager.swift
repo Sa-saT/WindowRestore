@@ -193,8 +193,11 @@ final class WindowManager {
         }
         let windows = try loadWindows(name: name)
         let deduped = deduplicateForRestore(windows)
+        // すでに復元対象として割り当てた AX ウィンドウを追跡し、
+        // 同一アプリの複数エントリが同じ物理ウィンドウを取り合うのを防ぐ。
+        var assigned: [AXUIElement] = []
         for win in deduped {
-            restoreSingleWindow(win)
+            restoreSingleWindow(win, assigned: &assigned)
             usleep(200_000)
         }
     }
@@ -325,10 +328,10 @@ final class WindowManager {
         var bestDist = CGFloat.infinity
         for w in windows {
             var ref: CFTypeRef?
+            // 型IDを検証してから AXValue へキャストする（想定外の型でのクラッシュを防ぐ）
             guard AXUIElementCopyAttributeValue(w, kAXPositionAttribute as CFString, &ref) == .success,
-                  ref != nil else { continue }
-            // CFTypeRef → AXValue のキャストは常に成功するため as! を使用
-            let axVal = ref! as! AXValue
+                  let value = ref, CFGetTypeID(value) == AXValueGetTypeID() else { continue }
+            let axVal = value as! AXValue
             var pos = CGPoint.zero
             guard AXValueGetValue(axVal, .cgPoint, &pos) else { continue }
             let dist = hypot(pos.x - target.x, pos.y - target.y)
@@ -412,7 +415,7 @@ final class WindowManager {
         return CGRect(x: x, y: y, width: w, height: h)
     }
 
-    private func restoreSingleWindow(_ info: WindowInfo) {
+    private func restoreSingleWindow(_ info: WindowInfo, assigned: inout [AXUIElement]) {
         // 1) bundleIdentifier があればそれを優先して現在のPID群を取得。なければ従来のPIDを使用
         var targetPids: [pid_t] = []
         if let bid = info.bundleIdentifier, !bid.isEmpty {
@@ -449,12 +452,20 @@ final class WindowManager {
                 continue
             }
 
+            // すでに別エントリへ割り当て済みのウィンドウを候補から除外する。
+            // 全ウィンドウが割り当て済みなら、このPIDでは選べないので次へ。
+            let candidates = axWindows.filter { w in
+                !assigned.contains { CFEqual($0, w) }
+            }
+            guard !candidates.isEmpty else { continue }
+
             // タイトル一致 → 複数なら保存座標に最も近いものを採用、なければ座標近似のみで選択
             let targetWindow = bestMatchWindow(
-                from: axWindows,
+                from: candidates,
                 windowName: info.windowName,
                 savedOrigin: info.bounds.origin
             )
+            assigned.append(targetWindow)
 
             // 位置とサイズ設定（画面外防止クランプ適用）
             let clampedBounds = clampWindowToScreen(info.bounds, preferredDisplayUUID: info.displayUUID)
