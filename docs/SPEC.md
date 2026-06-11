@@ -1,7 +1,7 @@
 # Window Restore — 仕様書
 
 > 統合元: `REQUIREMENTS.md`（要件定義）+ `docs/SWIFT_ONLY_SPEC.md`（Swift単独仕様）  
-> 最終更新: 2026-02-20（Xcode プロジェクト移行に伴い統合・改訂）
+> 最終更新: 2026-06-12（実コードとの整合性確認・SecondaryStatusIcons 削除反映・復元仕様の API 名修正・Phase 7 反映）
 
 ---
 
@@ -44,7 +44,6 @@
 | 設定管理 | 自動復元、ディスプレイ変化検知等のオプションを `config.json` に保存 |
 | 通知表示 | 操作結果（保存完了/復元完了/エラー）を macOS ネイティブ通知で表示 |
 | 権限管理 | 起動時にアクセシビリティ許可をチェック。未許可時はユーザーに通知 |
-| セカンダリディスプレイ対応 | 複数ディスプレイにステータスアイコンを表示 |
 
 ---
 
@@ -129,7 +128,6 @@ window_restore/
 │   ├── FileHelper.swift          # ファイル I/O ヘルパー
 │   ├── LayoutAPI.swift            # レイアウト操作 API（内部は WindowManager を呼出）
 │   ├── QuitWindow.swift          # 終了確認ウィンドウ
-│   ├── SecondaryStatusIcons.swift # セカンダリディスプレイアイコン
 │   ├── Info.plist
 │   └── Assets.xcassets/
 ├── docs/
@@ -158,7 +156,6 @@ window_restore/
 | `AppDelegate` | アプリライフサイクル管理、各コンポーネントの初期化・接続 |
 | `SettingsWindow` | 設定 UI の表示・変更 |
 | `LayoutSelector` | レイアウト一覧・選択・削除のダイアログ UI |
-| `SecondaryStatusIcons` | マルチディスプレイ時のステータスアイコン表示 |
 
 ---
 
@@ -190,9 +187,9 @@ window_restore/
 
 1. `AXIsProcessTrusted()` で権限確認（false なら中断・通知）
 2. 保存 JSON を読み込み、`deduplicateForRestore` で重複エントリを除去
-3. `bundleIdentifier` でアプリを特定。未起動の場合は `NSWorkspace.launchApplication` で起動し最大 10 秒待機
+3. `bundleIdentifier` でアプリを特定。未起動の場合は `NSWorkspace.openApplication(at:configuration:)` で起動し最大 10 秒待機
 4. `AXUIElementCreateApplication(pid)` → `kAXWindowsAttribute` で全 Space のウィンドウ取得
-5. `bestMatchWindow` でウィンドウを特定（タイトル一致 → 座標最近傍の順に選択）
+5. `bestMatchWindow` でウィンドウを特定（タイトル一致 → 座標最近傍の順に選択）。割り当て済みウィンドウは候補から除外し、同一アプリ複数ウィンドウの二重割り当てを防ぐ
 6. `clampWindowToScreen` で画面外配置を防止（UUID 一致ディスプレイ優先）
 7. `kAXPositionAttribute` / `kAXSizeAttribute` を `AXValueCreate` で設定
 

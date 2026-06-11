@@ -1,7 +1,7 @@
 # Window Restore — 設計・実装ガイド
 
 > 統合元: `docs/WINDOW_RESTORE_DESIGN.md`  
-> 最終更新: 2026-02-20（Xcode プロジェクト移行に伴い改訂）
+> 最終更新: 2026-06-12（実コードとの整合性確認・SecondaryStatusIcons 削除反映・FileHelper API 名修正・Phase 7 反映）
 
 ---
 
@@ -54,8 +54,7 @@ WindowRestore/
 ├── LayoutSelector.swift       … レイアウト選択/削除ダイアログ
 ├── FileHelper.swift           … ディレクトリ解決、JSON I/O
 ├── LayoutAPI.swift            … レイアウト操作 API ファサード
-├── QuitWindow.swift           … 終了確認
-└── SecondaryStatusIcons.swift … マルチディスプレイ用ステータスアイコン
+└── QuitWindow.swift           … 終了確認
 ```
 
 > **Xcode 移行による変更点**
@@ -78,9 +77,10 @@ WindowRestore/
 - `replaceWindowsForLabel(name:label:with:)` — ラベル差し替え
 
 **FileHelper.swift**
-- `resolveBaseDirectory()` — 保存先ディレクトリ解決（環境変数 → Application Support → フォールバック）
-- `saveJSON(_:to:)` / `loadJSON(from:)` — 汎用 JSON I/O
-- `listFiles(in:extension:)` / `deleteFile(at:)` — ファイル操作
+- `baseDirectoryURL()` / `layoutsDirectoryURL()` / `layoutFileURL(name:)` — 保存先ディレクトリ・ファイルパス解決（環境変数 → Application Support → フォールバック）
+- `ensureDirectories()` — ディレクトリ生成、`validateLayoutName(_:)` — レイアウト名検証
+- `saveJSON(_:to:)` / `loadJSON(_:from:)` — 汎用 JSON I/O
+- `listLayoutNames()` / `deleteLayout(name:)` — レイアウト一覧・削除
 
 **LayoutAPI.swift**（ファサード）
 - レイアウト操作（保存/復元/削除/一覧）の統一エントリポイント
@@ -170,6 +170,7 @@ flowchart TD
 
 - `bestMatchWindow` がタイトル完全一致 → 座標最近傍の順で選択するため、通常は正しいウィンドウが選ばれる
 - タイトルが空のアプリでは保存時の座標に最も近いウィンドウが選択される
+- 同一アプリの複数ウィンドウを復元する場合、`restoreWindows` が割り当て済みウィンドウを追跡し、後続エントリの候補から除外する（同じ物理ウィンドウへの二重割り当て防止）
 
 ---
 

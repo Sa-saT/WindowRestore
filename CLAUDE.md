@@ -28,7 +28,6 @@ WindowRestore/
 ├── PermissionManager.swift  # アクセシビリティ権限監視
 ├── LayoutSelector.swift     # レイアウト選択・削除ダイアログ
 ├── SettingsWindow.swift     # 設定 UI（UserDefaults）
-├── SecondaryStatusIcons.swift  # セカンダリディスプレイのステータスアイコン
 └── QuitWindow.swift         # 終了確認ウィンドウ
 ```
 
@@ -80,12 +79,13 @@ struct WindowInfo: Codable {
 
 ## ウィンドウマッチングロジック（restoreSingleWindow）
 
-1. `bundleIdentifier` でアプリを特定（未起動なら `NSWorkspace.launchApplication` で起動・最大 10 秒待機）
+1. `bundleIdentifier` でアプリを特定（未起動なら `NSWorkspace.openApplication(at:configuration:)` で起動・最大 10 秒待機）
 2. `kAXWindowsAttribute` で全ウィンドウ取得（全 Space 分）
 3. `bestMatchWindow` でウィンドウを選択:
    - タイトル一致が 1 件 → そのまま採用
    - タイトル一致が複数 → 保存座標に最も近いウィンドウ（`closestWindow`）
    - タイトル不一致 → 全候補から保存座標に最も近いウィンドウ
+   - `restoreWindows` が割り当て済みウィンドウを `assigned` で追跡し、候補から除外（同一アプリ複数ウィンドウの二重割り当て防止／Phase 7・2026-06-12）
 
 ## 画面外配置防止（clampWindowToScreen）
 
@@ -149,5 +149,12 @@ struct WindowInfo: Codable {
 | 6.3 | `deduplicateForRestore` で重複エントリ除去 |
 | 追加 | `clampWindowToScreen` で画面外配置防止 |
 | 追加 | 保存・復元フローを 1 パターンに統合（インタラクティブ復元廃止） |
+
+## Phase 7 完了済みタスク（2026-06-12）
+
+| タスク | 内容 |
+|--------|------|
+| 7.1 | `restoreWindows` で割り当て済みウィンドウを追跡し、同一アプリ複数ウィンドウの二重割り当てを防止 |
+| 7.2 | `closestWindow` の AXValue 強制キャストを型ID検証付きに変更（クラッシュ耐性向上） |
 
 詳細は `docs/TASK_SCHEDULE.md` を参照。
