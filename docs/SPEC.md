@@ -1,7 +1,6 @@
 # Window Restore — 仕様書
 
-> 統合元: `REQUIREMENTS.md`（要件定義）+ `docs/SWIFT_ONLY_SPEC.md`（Swift単独仕様）  
-> 最終更新: 2026-06-12（実コードとの整合性確認・SecondaryStatusIcons 削除反映・復元仕様の API 名修正・Phase 7 反映）
+> 最終更新: 2026-06-13（旧 Rust / SPM 時代の記載を削除し現行仕様に整理）
 
 ---
 
@@ -17,16 +16,6 @@
 | ビルドシステム | **Xcode**（`.xcodeproj`） |
 | UI 形態 | メニューバー常駐（`LSUIElement = true`、Dock 非表示） |
 | 必要権限 | アクセシビリティ（他アプリのウィンドウ操作） |
-
-> **Xcode 移行による変更点**
->
-> | 変更前 | 変更後 |
-> |--------|--------|
-> | ~~Rust + Swift + FFI（cbindgen）~~ | Swift 単独 |
-> | ~~Swift Package Manager（`Package.swift`）~~ | Xcode プロジェクト（`WindowRestore.xcodeproj`） |
-> | ~~`scripts/make_app.sh` で手動 .app 生成~~ | Xcode が .app バンドルを自動生成 |
-> | ~~`sips` + `iconutil` で手動 icns 変換~~ | Asset Catalog（`Assets.xcassets`） |
-> | ~~対象 OS: macOS 15~~ | macOS 13+（Xcode Deployment Target に準拠） |
 
 ---
 
@@ -129,18 +118,8 @@ window_restore/
 │   ├── Info.plist
 │   └── Assets.xcassets/
 ├── docs/
-├── README.md
-└── _archived_spm/                # 旧 SPM ファイル退避
+└── README.md
 ```
-
-> **Xcode 移行による変更点**
->
-> | 変更前 | 変更後 |
-> |--------|--------|
-> | ~~`mac-app/Package.swift` + `mac-app/Sources/`~~ | `WindowRestore.xcodeproj` + `WindowRestore/` |
-> | ~~`mac-app/Sources/Resources/` (SPM リソース)~~ | `WindowRestore/Assets.xcassets/` |
-> | ~~`scripts/make_app.sh`（手動ビルド）~~ | Xcode の Build (Cmd+B) |
-> | ~~`dist/`（手動出力先）~~ | Xcode DerivedData |
 
 ### 5.2 コンポーネント役割
 
@@ -246,78 +225,3 @@ window_restore/
 | ログイン時自動復元 | 手動復元に集約（メニュー1操作で完結） |
 | ディスプレイ変化検知による自動復元 | 公開 API での信頼できる検知・発火が難しく、手動復元で代替 |
 | Space 自動切替 | 信頼できる公開 API がない（AX API は Space 横断のため不要） |
-
----
-
-## 付録: Xcode 移行で廃止された旧仕様
-
-以下は Rust + FFI 時代および SPM 時代の仕様で、現在は使用されていません。
-
-<details>
-<summary>旧 Rust FFI インターフェース（廃止）</summary>
-
-```rust
-// ffi.rs — Swift から C 互換 API で呼び出していた
-#[no_mangle] pub extern "C" fn save_current_layout(name: *const c_char) -> i32;
-#[no_mangle] pub extern "C" fn restore_layout(name: *const c_char) -> i32;
-#[no_mangle] pub extern "C" fn get_layout_list() -> *mut c_char;
-#[no_mangle] pub extern "C" fn delete_layout(name: *const c_char) -> i32;
-#[no_mangle] pub extern "C" fn check_permissions() -> i32;
-#[no_mangle] pub extern "C" fn get_last_error_message() -> *mut c_char;
-```
-
-→ 現在は `LayoutAPI.swift` が同等のメソッドを持つファサードとして機能し、内部で `WindowManager` を直接呼び出しています。
-
-</details>
-
-<details>
-<summary>旧 Rust エラー型（廃止）</summary>
-
-```rust
-#[derive(Debug, thiserror::Error)]
-pub enum WindowRestoreError {
-    PermissionDenied(String),
-    AppNotFound(String),
-    WindowNotFound(String),
-    DisplayNotFound(String),
-    FileIOError(#[from] std::io::Error),
-    JsonError(#[from] serde_json::Error),
-}
-```
-
-→ Swift 側で `do/catch` + ログ出力 + 通知に置き換え済み。
-
-</details>
-
-<details>
-<summary>旧ビルド手順（Rust + SPM、廃止）</summary>
-
-```bash
-# Rust ライブラリビルド
-cargo build --release --target aarch64-apple-darwin
-
-# C ヘッダー生成
-cbindgen --config cbindgen.toml --crate window_restore --output mac-app/Bridging/window_restore.h
-
-# SPM ビルド
-cd mac-app && swift build -c release
-
-# .app バンドル手動生成
-bash scripts/make_app.sh
-```
-
-→ Xcode で Cmd+B（Build）するだけで .app が生成されます。
-
-</details>
-
-<details>
-<summary>旧 WindowLevel enum（Rust、廃止）</summary>
-
-```rust
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum WindowLevel { Normal = 0, Floating = 3, Modal = 8, Dock = 20 }
-```
-
-→ Swift 実装では `kCGWindowLayer == 0` のフィルタで代替。
-
-</details>

@@ -1,7 +1,6 @@
 # Window Restore — 設計・実装ガイド
 
-> 統合元: `docs/WINDOW_RESTORE_DESIGN.md`  
-> 最終更新: 2026-06-12（実コードとの整合性確認・SecondaryStatusIcons 削除反映・FileHelper API 名修正・Phase 7 反映）
+> 最終更新: 2026-06-13（旧 Rust / SPM 時代の記載を削除し現行仕様に整理）
 
 ---
 
@@ -24,13 +23,6 @@
 - `AXUIElementCreateApplication(pid)` で対象アプリの AX 要素を取得
 - `kAXWindowsAttribute` でウィンドウ一覧を取得
 - `kAXPositionAttribute` / `kAXSizeAttribute` を `AXValueCreate` で設定
-
-> **Xcode 移行による変更点**
->
-> | 変更前 | 変更後 |
-> |--------|--------|
-> | ~~AppleScript（System Events）で `window.position` を設定~~ | Accessibility API（`AXUIElement`）で直接設定 |
-> | ~~Rust FFI 経由で呼び出し~~ | Swift で直接実装（`WindowManager.swift`） |
 
 ### マルチディスプレイ / 座標
 
@@ -56,12 +48,6 @@ WindowRestore/
 ├── LayoutAPI.swift            … レイアウト操作 API ファサード
 └── QuitWindow.swift           … 終了確認
 ```
-
-> **Xcode 移行による変更点**
->
-> - ~~`mac-app/Sources/`~~ → `WindowRestore/` にソース配置
-> - ~~`mac-app/Sources/Resources/`（SPM リソース）~~ → `WindowRestore/Assets.xcassets/`
-> - ~~`mac-app/Package.swift`~~ → `WindowRestore.xcodeproj/project.pbxproj`
 
 ### 各コンポーネントの詳細
 
@@ -189,13 +175,6 @@ flowchart TD
 5. **権限** — `PermissionManager.swift`
    - `AXIsProcessTrusted()` のチェックと監視
 
-> **Xcode 移行による変更点**
->
-> | 変更前 | 変更後 |
-> |--------|--------|
-> | ~~`mac-app/Package.swift` を確認（リンク設定）~~ | `WindowRestore.xcodeproj` の Build Settings を確認 |
-> | ~~`scripts/make_app.sh` を確認（.app 構成）~~ | Xcode が自動管理 |
-
 ### 5.2 操作別トレース
 
 **保存（Save）**
@@ -221,34 +200,3 @@ open WindowRestore.xcodeproj
 # ビルド: Cmd+B
 # 実行: Cmd+R
 ```
-
-> **Xcode 移行による変更点**
->
-> | 変更前 | 変更後 |
-> |--------|--------|
-> | ~~`cd mac-app && swift build`~~ | Xcode で Cmd+B |
-> | ~~`bash scripts/make_app.sh`~~ | Xcode が自動で .app 生成 |
-> | ~~`RUST_LOG=info` で起動してログ確認~~ | Xcode Console でログ確認 |
-
----
-
-## 付録: 旧 Rust 実装のコンポーネント（参考）
-
-以下は Rust + FFI 時代のコンポーネントです。現在はすべて Swift に置き換え済み。
-
-<details>
-<summary>旧 Rust コンポーネント一覧</summary>
-
-| Rust モジュール | 役割 | 現在の対応 |
-|---|---|---|
-| `src/window_scanner.rs` | CGWindowList でウィンドウ列挙 | `WindowManager.fetchVisibleAppWindows()` |
-| `src/window_restorer.rs` | AppleScript でウィンドウ移動 | `WindowManager.restoreWindows(name:)`（AX API） |
-| `src/layout_manager.rs` | JSON 保存/読込/一覧/削除 | `WindowManager` + `FileHelper` |
-| `src/config.rs` | 設定ファイル管理 | `SettingsWindow` |
-| `src/app_launcher.rs` | アプリ起動支援 | 未使用（復元時に必要なら拡張可能） |
-| `src/display_manager.rs` | ディスプレイ座標管理 | `WindowManager` 内で処理 |
-| `src/permission_checker.rs` | `AXIsProcessTrusted()` | `PermissionManager.swift` |
-| `src/notification.rs` | 通知管理 | `AppDelegate` 内の `postUserNotification()` |
-| `src/ffi.rs` | C 互換エクスポート | `LayoutAPI.swift` |
-
-</details>
