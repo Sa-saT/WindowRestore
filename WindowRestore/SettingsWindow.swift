@@ -24,13 +24,10 @@ class SettingsWindow: NSWindow {
     /// 設定ウィンドウのコントローラー参照（名称衝突回避）
     private var settingsWindowControllerRef: NSWindowController?
     
+    /// 復元間隔の既定値（ミリ秒）。WindowManager のフォールバックと一致させる。
+    private let defaultRestoreDelayMs = 200
+
     // UI要素
-    /// 自動復元チェックボックス
-    private var autoRestoreCheckbox: NSButton!
-    
-    /// ディスプレイ変化検知チェックボックス
-    private var detectDisplayChangesCheckbox: NSButton!
-    
     /// 復元遅延スライダー
     private var restoreDelaySlider: NSSlider!
     
@@ -79,43 +76,31 @@ class SettingsWindow: NSWindow {
         titleLabel.font = NSFont.systemFont(ofSize: 18, weight: .bold)
         titleLabel.frame = NSRect(x: 20, y: 350, width: 460, height: 30)
         contentView.addSubview(titleLabel)
-        
-        // 自動復元チェックボックス
-        autoRestoreCheckbox = NSButton(checkboxWithTitle: "ログイン時に自動的にレイアウトを復元", target: self, action: #selector(autoRestoreChanged))
-        autoRestoreCheckbox.frame = NSRect(x: 20, y: 310, width: 460, height: 24)
-        autoRestoreCheckbox.state = .off // デフォルト: オフ
-        contentView.addSubview(autoRestoreCheckbox)
-        
-        // ディスプレイ変化検知チェックボックス
-        detectDisplayChangesCheckbox = NSButton(checkboxWithTitle: "ディスプレイ構成の変化を検知", target: self, action: #selector(detectDisplayChangesChanged))
-        detectDisplayChangesCheckbox.frame = NSRect(x: 20, y: 280, width: 460, height: 24)
-        detectDisplayChangesCheckbox.state = .on // デフォルト: オン
-        contentView.addSubview(detectDisplayChangesCheckbox)
-        
+
         // 復元遅延設定
         let delayLabel = NSTextField(labelWithString: "復元間隔（ミリ秒）:")
-        delayLabel.frame = NSRect(x: 20, y: 240, width: 150, height: 24)
+        delayLabel.frame = NSRect(x: 20, y: 300, width: 150, height: 24)
         contentView.addSubview(delayLabel)
-        
-        restoreDelaySlider = NSSlider(frame: NSRect(x: 180, y: 240, width: 200, height: 24))
+
+        restoreDelaySlider = NSSlider(frame: NSRect(x: 180, y: 300, width: 200, height: 24))
         restoreDelaySlider.minValue = 200
         restoreDelaySlider.maxValue = 5000
-        restoreDelaySlider.doubleValue = 1000 // デフォルト: 1000ms
+        restoreDelaySlider.doubleValue = Double(defaultRestoreDelayMs) // デフォルト
         restoreDelaySlider.target = self
         restoreDelaySlider.action = #selector(restoreDelayChanged)
         contentView.addSubview(restoreDelaySlider)
-        
-        restoreDelayLabel = NSTextField(labelWithString: "1000 ms")
-        restoreDelayLabel.frame = NSRect(x: 390, y: 240, width: 90, height: 24)
+
+        restoreDelayLabel = NSTextField(labelWithString: "\(defaultRestoreDelayMs) ms")
+        restoreDelayLabel.frame = NSRect(x: 390, y: 300, width: 90, height: 24)
         restoreDelayLabel.alignment = .right
         contentView.addSubview(restoreDelayLabel)
-        
+
         // 除外アプリケーション設定
-        let excludedAppsLabel = NSTextField(labelWithString: "除外するアプリケーション（1行に1つ）:")
-        excludedAppsLabel.frame = NSRect(x: 20, y: 200, width: 460, height: 24)
+        let excludedAppsLabel = NSTextField(labelWithString: "除外するアプリケーション（1行に1つ・アプリ名で指定）:")
+        excludedAppsLabel.frame = NSRect(x: 20, y: 260, width: 460, height: 24)
         contentView.addSubview(excludedAppsLabel)
-        
-        let scrollView = NSScrollView(frame: NSRect(x: 20, y: 80, width: 460, height: 110))
+
+        let scrollView = NSScrollView(frame: NSRect(x: 20, y: 80, width: 460, height: 170))
         scrollView.borderType = .bezelBorder
         scrollView.hasVerticalScroller = true
         scrollView.autoresizingMask = [.width, .height]
@@ -153,15 +138,7 @@ class SettingsWindow: NSWindow {
     /// UserDefaultsから設定を読み込んでUIに反映
     private func loadSettings() {
         let defaults = UserDefaults.standard
-        
-        // 自動復元設定
-        let autoRestore = defaults.bool(forKey: "autoRestore")
-        autoRestoreCheckbox.state = autoRestore ? .on : .off
-        
-        // ディスプレイ変化検知設定
-        let detectDisplayChanges = defaults.bool(forKey: "detectDisplayChanges")
-        detectDisplayChangesCheckbox.state = detectDisplayChanges ? .on : .off
-        
+
         // 復元遅延設定
         let restoreDelay = defaults.integer(forKey: "restoreDelay")
         if restoreDelay > 0 {
@@ -179,13 +156,7 @@ class SettingsWindow: NSWindow {
     /// UIの状態をUserDefaultsに保存
     @objc private func saveSettings() {
         let defaults = UserDefaults.standard
-        
-        // 自動復元設定
-        defaults.set(autoRestoreCheckbox.state == .on, forKey: "autoRestore")
-        
-        // ディスプレイ変化検知設定
-        defaults.set(detectDisplayChangesCheckbox.state == .on, forKey: "detectDisplayChanges")
-        
+
         // 復元遅延設定
         defaults.set(Int(restoreDelaySlider.doubleValue), forKey: "restoreDelay")
         
@@ -210,17 +181,7 @@ class SettingsWindow: NSWindow {
     }
     
     // MARK: - アクション
-    
-    /// 自動復元設定が変更された
-    @objc private func autoRestoreChanged() {
-        print("自動復元設定が変更されました: \(autoRestoreCheckbox.state == .on)")
-    }
-    
-    /// ディスプレイ変化検知設定が変更された
-    @objc private func detectDisplayChangesChanged() {
-        print("ディスプレイ変化検知設定が変更されました: \(detectDisplayChangesCheckbox.state == .on)")
-    }
-    
+
     /// 復元遅延が変更された
     @objc private func restoreDelayChanged() {
         let value = Int(restoreDelaySlider.doubleValue)

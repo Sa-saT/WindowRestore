@@ -199,39 +199,7 @@ class LayoutSelector {
         
         alert.runModal()
     }
-    
-    // MARK: - レイアウト詳細表示
-    
-    /// レイアウト詳細ダイアログを表示
-    /// 引数: layoutName - 表示するレイアウト名
-    func showLayoutDetailsDialog(layoutName: String) {
-        print("レイアウト詳細ダイアログを表示中: \(layoutName)")
-        
-        // TODO: レイアウトの詳細情報を取得
-        let alert = NSAlert()
-        alert.messageText = "レイアウト詳細"
-        alert.informativeText = "レイアウト「\(layoutName)」の詳細情報を表示します。"
-        alert.addButton(withTitle: "OK")
-        alert.alertStyle = .informational
-        
-        alert.runModal()
-    }
-    
-    /// レイアウト一覧ウィンドウを表示
-    /// レイアウト一覧を表示する専用ウィンドウを開く
-    func showLayoutListWindow() {
-        print("レイアウト一覧ウィンドウを表示中...")
-        
-        // TODO: レイアウト一覧ウィンドウの実装
-        let alert = NSAlert()
-        alert.messageText = "レイアウト一覧"
-        alert.informativeText = "レイアウト一覧ウィンドウは今後実装予定です。"
-        alert.addButton(withTitle: "OK")
-        alert.alertStyle = .informational
-        
-        alert.runModal()
-    }
-    
+
     // MARK: - ヘルパーメソッド
     
     /// レイアウト名の検証

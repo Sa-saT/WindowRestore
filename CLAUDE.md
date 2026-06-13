@@ -44,6 +44,17 @@ AppDelegate → LayoutAPI → WindowManager → FileHelper
 
 環境変数 `WINDOW_RESTORE_DATA_DIR` で上書き可能。
 
+## 設定（UserDefaults）
+
+設定画面（`SettingsWindow`）に出るのは次の2項目のみ。どちらも `UserDefaults` 標準ドメインに保存し、`WindowManager` が実処理に反映する。
+
+| キー | 反映先 | 既定値 |
+|------|--------|--------|
+| `restoreDelay` | `restoreWindows` の各ウィンドウ適用間隔（200〜5000ms にクランプ） | 200 |
+| `excludedApps` | `fetchVisibleAppWindows` の保存対象フィルタ（所有者名で除外） | なし |
+
+> 自動復元・ディスプレイ変化検知は「最小・ローカル完結」のコンセプトに照らして削除済み（2026-06-13）。復活させない。
+
 ## WindowInfo 構造体
 
 ```swift
@@ -139,6 +150,8 @@ struct WindowInfo: Codable {
 - Space 自動切替（公開 API なし）
 - インタラクティブ復元の再実装（一括復元と等価・削除済み）
 - `spaceNumber` フィールドの復活（常に nil・削除済み）
+- ログイン時自動復元 / ディスプレイ変化検知の実装（スコープ外・削除済み）
+- クラウド同期・配置の自動学習・プラグイン機構（最小・ローカル完結を維持）
 
 ## Phase 6 完了済みタスク（2026-03-17）
 

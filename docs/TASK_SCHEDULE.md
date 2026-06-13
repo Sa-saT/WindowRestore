@@ -212,21 +212,44 @@
 
 > 2026-06-12 のコードレビューで特定された問題への対処
 
-### ⬜ 7.1 同一アプリ複数ウィンドウの取り違え防止（復元正確性）
+### ✅ 7.1 同一アプリ複数ウィンドウの取り違え防止（復元正確性）
 
-- [ ] `restoreWindows` で「割り当て済み AXUIElement」を追跡し、`bestMatchWindow` の候補から除外する
+- [x] `restoreWindows` で「割り当て済み AXUIElement」を追跡し、`bestMatchWindow` の候補から除外する
   - 現状: 各 `restoreSingleWindow` が独立に候補を選ぶため、タイトルが空/同一の同一アプリ複数ウィンドウで
     2 つの保存エントリが同じ物理ウィンドウを選び、後者が前者の位置を上書きする
   - 対処: 復元ループで割り当て済みウィンドウの `Set` を持ち回し、候補から除外する
 
-### ⬜ 7.2 AXValue 強制キャストの堅牢化（クラッシュ耐性）
+### ✅ 7.2 AXValue 強制キャストの堅牢化（クラッシュ耐性）
 
-- [ ] `closestWindow` の `ref! as! AXValue` を条件付きキャストに変更
+- [x] `closestWindow` の `ref! as! AXValue` を条件付きキャストに変更
   - 現状: アプリが想定外の型を返すとクラッシュする
   - 対処: `guard let axVal = ref as? AXValue else { continue }` に変更（ロジック不変・堅牢化）
 
 ---
 
+## Phase 8: 設定の実機能化・幽霊機能の整理（コンセプト精査）
+
+> 2026-06-13 のコンセプト精査。「最小・ローカル完結」に照らし、動作しない設定UI・デッドコードを整理し、実機能のみ接続した。
+
+### ✅ 8.1 設定の実機能化（接続）
+
+- [x] `restoreDelay` を `restoreWindows` の適用間隔に接続（ハードコードの `usleep(200_000)` を設定値参照に）
+- [x] `excludedApps` を `fetchVisibleAppWindows` の保存フィルタに合成（所有者名で除外）
+
+### ✅ 8.2 幽霊機能・デッドコードの削除
+
+- [x] `SettingsWindow` から `autoRestore` / `detectDisplayChanges` を削除（実処理で未使用だった）
+- [x] `LayoutSelector.showLayoutDetailsDialog` / `showLayoutListWindow` を削除（どこからも呼ばれないスタブ）
+- [x] README の「セカンダリディスプレイにステータスアイコン」記述を削除（`SecondaryStatusIcons` 削除済みで虚偽）
+
+### ✅ 8.3 ドキュメントのコンセプト整合
+
+- [x] SPEC §3.3 設定を実際の `UserDefaults` キーに修正、§4 から未使用の `config.json` を削除
+- [x] SPEC §12 を「スコープ外（意図的に実装しない）」に書き換え（クラウド同期/自動学習/プラグイン等）
+- [x] CLAUDE.md に設定の接続先と「やってはいけないこと」を追記
+
+---
+
 **作成日**: 2024年1月15日
-**最終更新**: 2026年6月12日（Phase 7 追記：コードレビュー指摘対応）
+**最終更新**: 2026年6月13日（Phase 8 追記：設定の実機能化・コンセプト精査）
 **担当者**: 開発者

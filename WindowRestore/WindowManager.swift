@@ -26,6 +26,26 @@ final class WindowManager {
     // 最小ウィンドウサイズ閾値
     private let minWindowSize: CGFloat = 100.0
 
+    // 復元時の既定インターバル（ミリ秒）。設定未保存時のフォールバック。
+    private let defaultRestoreDelayMs = 200
+
+    // MARK: - 設定（UserDefaults）
+
+    /// 復元時、各ウィンドウ適用の間隔。設定画面の「復元間隔」を反映（未設定なら既定値）。
+    private var restoreIntervalUs: useconds_t {
+        let ms = UserDefaults.standard.integer(forKey: "restoreDelay")
+        let clamped = ms > 0 ? min(max(ms, 200), 5000) : defaultRestoreDelayMs
+        return useconds_t(clamped * 1000)
+    }
+
+    /// 設定画面の「除外するアプリケーション」（所有者名で一致）。保存時に対象外とする。
+    private var userExcludedOwnerNames: Set<String> {
+        let list = UserDefaults.standard.array(forKey: "excludedApps") as? [String] ?? []
+        return Set(list
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty })
+    }
+
     // MARK: - 権限
 
     func hasAccessibilityPermission() -> Bool {
@@ -133,8 +153,10 @@ final class WindowManager {
 
     // 表示用に安定フィルタのみ（同一アプリの複数ウィンドウを保持）
     private func filterWindows(from windows: [RawWindow]) -> [RawWindow] {
+        // 既定の除外リストにユーザー設定の除外アプリを合成
+        let excluded = excludedOwnerNames.union(userExcludedOwnerNames)
         return windows.filter { w in
-            if excludedOwnerNames.contains(w.ownerName) { return false }
+            if excluded.contains(w.ownerName) { return false }
             if w.layer != 0 { return false }
             if w.alpha < 0.01 { return false }
             if w.bounds.width < minWindowSize || w.bounds.height < minWindowSize { return false }
@@ -189,9 +211,10 @@ final class WindowManager {
         // すでに復元対象として割り当てた AX ウィンドウを追跡し、
         // 同一アプリの複数エントリが同じ物理ウィンドウを取り合うのを防ぐ。
         var assigned: [AXUIElement] = []
+        let intervalUs = restoreIntervalUs
         for win in deduped {
             restoreSingleWindow(win, assigned: &assigned)
-            usleep(200_000)
+            usleep(intervalUs)
         }
     }
 
